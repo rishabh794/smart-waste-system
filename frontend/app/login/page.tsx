@@ -4,6 +4,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,22 +12,31 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     setError("");
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
 
-    if (res?.error) {
-      setError("Invalid email or password");
-    } else {
-      router.push("/dashboard");
-      router.refresh();
+      if (res?.error) {
+        setError("Invalid email or password");
+      } else {
+        toast.success("Signed in successfully.");
+        router.push("/dashboard");
+        router.refresh();
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -93,8 +103,12 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-            <button type="submit" className="btn-primary w-full">
-              Access Dashboard
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSubmitting ? "Accessing Dashboard..." : "Access Dashboard"}
             </button>
           </form>
         </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { apiFetch } from '../../lib/apiFetch';
 import dynamic from 'next/dynamic';
 import polyline from '@mapbox/polyline';
+import { toast } from "sonner";
 
 interface RouteBin {
   binId: string;
@@ -37,9 +38,24 @@ const DriverMap = dynamic(() => import('./DriverMap'), {
 
 const DEPOT_COORDS: [number, number] = [30.316, 78.032];
 
+const getApiErrorMessage = async (res: Response, fallback: string) => {
+  try {
+    const data = await res.json();
+    if (typeof data?.error === "string" && data.error.trim().length > 0) {
+      return data.error;
+    }
+  } catch {
+    // Fall through to fallback message when response body is not JSON.
+  }
+
+  return fallback;
+};
+
 export default function DriverDashboard({ userId }: { userId: string }) {
   const [route, setRoute] = useState<RouteData | null>(null);
   const [routePath, setRoutePath] = useState<[number, number][]>([]);
+  const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
+  const [isCompletingRoute, setIsCompletingRoute] = useState(false);
 
   useEffect(() => {
     //  Fetch the raw route from your backend
@@ -103,6 +119,10 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       .catch((err) => console.error(err));
   }, [userId]);
 
+  useEffect(() => {
+    setIsConfirmingComplete(false);
+  }, [route?.routeId]);
+
   const updateBinStatus = async (binId: string, newStatus: string) => {
     if (!route?.routeId) return;
 
@@ -124,28 +144,33 @@ export default function DriverDashboard({ userId }: { userId: string }) {
         });
       } else {
         console.error("Failed to update bin status");
+        toast.error(await getApiErrorMessage(res, "Unable to update bin status."));
       }
     } catch (error) {
       console.error("Network error:", error);
+      toast.error("Network issue while updating bin status. Please try again.");
     }
   };
 
   const handleCompleteRoute = async () => {
-    if (!route?.routeId) return;
-    if (!confirm("Are you sure you want to complete today's route?")) return;
+    if (!route?.routeId || isCompletingRoute) return;
 
     try {
+      setIsCompletingRoute(true);
       const res = await apiFetch(`/api/routes/${route.routeId}/status`, { method: "PATCH" });
       
       if (res.ok) {
-        alert("Route completed! Great job today.");
+        toast.success("Route marked as completed.");
+        setIsConfirmingComplete(false);
         setRoute(null);
       } else {
-        const errorData = await res.json();
-        alert(`❌ ${errorData.error}`);
+        toast.error(await getApiErrorMessage(res, "Unable to complete route right now."));
       }
     } catch (error) {
       console.error(error);
+      toast.error("Network issue while completing route. Please try again.");
+    } finally {
+      setIsCompletingRoute(false);
     }
   };
 
@@ -205,12 +230,41 @@ export default function DriverDashboard({ userId }: { userId: string }) {
               ))}
             </ul>
 
-            <button 
-              onClick={handleCompleteRoute}
-              className="btn-primary mx-4 mb-4 mt-2 w-[calc(100%-2rem)]"
-            >
-              Finish Day Route
-            </button>
+            {!isConfirmingComplete ? (
+              <button
+                onClick={() => setIsConfirmingComplete(true)}
+                className="btn-primary mx-4 mb-4 mt-2 w-[calc(100%-2rem)]"
+              >
+                Finish Day Route
+              </button>
+            ) : (
+              <div className="mx-4 mb-4 mt-2 rounded-xl border border-[#f1d8b1] bg-[#fff7e9] p-4">
+                <p className="text-sm font-bold text-[#5a4213]">
+                  Confirm route completion?
+                </p>
+                <p className="mt-1 text-sm text-[#6d5730]">
+                  This will mark today&apos;s route as complete for dispatch records.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingComplete(false)}
+                    disabled={isCompletingRoute}
+                    className="w-1/2 rounded-md border border-[#d4c2a0] bg-[#fffdfa] px-3 py-2 text-sm font-semibold text-[#5e4a23] transition hover:bg-[#fff4df] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCompleteRoute}
+                    disabled={isCompletingRoute}
+                    className="w-1/2 rounded-md border border-[#e5b567] bg-[#f2c06f] px-3 py-2 text-sm font-extrabold text-[#4f3810] transition hover:bg-[#f5cb86] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isCompletingRoute ? "Completing..." : "Yes, Complete Route"}
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <p className="mb-4 rounded-md border border-[#c8e6ce] bg-[#eefaf0] p-3 font-bold text-[#2c6f39]">No bins assigned today. Enjoy the day off!</p>

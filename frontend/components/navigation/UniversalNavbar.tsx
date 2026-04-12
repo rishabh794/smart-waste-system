@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 const publicLinks = [
   { href: "/", label: "Home" },
@@ -20,14 +22,40 @@ const adminLinks = [
 const driverLinks = [{ href: "/dashboard", label: "Dashboard" }];
 
 export default function UniversalNavbar() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const navLinks = session?.user?.role === "admin"
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const stableSession = isMounted && status !== "loading" ? session : null;
+
+  const navLinks = stableSession?.user?.role === "admin"
     ? adminLinks
-    : session?.user?.role === "driver"
+    : stableSession?.user?.role === "driver"
       ? driverLinks
       : publicLinks;
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+
+    try {
+      setIsSigningOut(true);
+      const result = await signOut({ redirect: false, callbackUrl: "/login" });
+      toast.success("Signed out successfully.");
+      router.push(result?.url ?? "/login");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("Unable to sign out right now. Please try again.");
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   const linkClass = (href: string) => {
     const isActive = href.startsWith("/#") ? pathname === "/" : pathname === href;
@@ -48,8 +76,8 @@ export default function UniversalNavbar() {
               <span>SmartWaste.</span>
             </Link>
             <p className="mt-1 hidden text-xs font-medium text-[#607268] sm:block">
-              {session
-                ? `Logged in as ${session.user?.name} (${session.user?.role})`
+              {stableSession
+                ? `Logged in as ${stableSession.user?.name} (${stableSession.user?.role})`
                 : "Smart Waste Tracking And Route Coordination"}
             </p>
           </div>
@@ -63,7 +91,7 @@ export default function UniversalNavbar() {
               ))}
             </nav>
 
-            {!session ? (
+            {!stableSession ? (
               <Link
                 href="/login"
                 className="btn-primary"
@@ -72,10 +100,11 @@ export default function UniversalNavbar() {
               </Link>
             ) : (
               <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={handleSignOut}
+                disabled={isSigningOut}
                 className="btn-secondary btn-signout"
               >
-                Sign Out
+                {isSigningOut ? "Signing Out..." : "Sign Out"}
               </button>
             )}
           </div>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiFetch } from '../../lib/apiFetch';
 import dynamic from 'next/dynamic';
 import useSWR from 'swr'; //Stale-While-Revalidate for data fetching and caching [Polling]
+import { toast } from "sonner";
 
 type AdminDashboardSection = "dashboard" | "status" | "create";
 
@@ -33,6 +34,19 @@ const fetcher = async (url: string) => {
     throw new Error(`Failed to fetch ${url}`);
   }
   return res.json();
+};
+
+const getApiErrorMessage = async (res: Response, fallback: string) => {
+  try {
+    const data = await res.json();
+    if (typeof data?.error === "string" && data.error.trim().length > 0) {
+      return data.error;
+    }
+  } catch {
+    // Fall through to fallback message when response body is not JSON.
+  }
+
+  return fallback;
 };
 
 // Dynamically import the map, disabling Server-Side Rendering
@@ -99,7 +113,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
 
   const handleCreateRoute = async () => {
     if (!selectedDriver || selectedBins.length === 0) {
-      alert("Please select a driver and at least one bin.");
+      toast.warning("Select a driver and at least one bin before dispatching.");
       return;
     }
 
@@ -113,34 +127,49 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       });
 
       if (res.ok) {
-        alert("Route successfully dispatched!");
+        toast.success("Route dispatched successfully.");
         setSelectedBins([]);
         await Promise.all([mutateBins(), mutatePendingRoutes()]);
       } else {
-        alert("Failed to create route.");
+        toast.error(await getApiErrorMessage(res, "Unable to create route right now."));
       }
     } catch (error) {
       console.error(error);
+      toast.error("Network issue while creating route. Please try again.");
     }
   };
 
   const handleAddBin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const latitude = parseFloat(newBin.latitude);
+    const longitude = parseFloat(newBin.longitude);
+
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+      toast.warning("Enter valid latitude and longitude values.");
+      return;
+    }
+
     try {
       const res = await apiFetch("/api/bins", {
         method: "POST",
         body: JSON.stringify({
-          latitude: parseFloat(newBin.latitude),
-          longitude: parseFloat(newBin.longitude),
+          latitude,
+          longitude,
           zone: newBin.zone
         })
       });
       if (res.ok) {
-        alert("Bin added successfully!");
+        toast.success("Bin registered successfully.");
         setNewBin({ latitude: "", longitude: "", zone: "" });
         await mutateBins();
+      } else {
+        toast.error(await getApiErrorMessage(res, "Unable to register bin right now."));
       }
-    } catch (error) { console.error(error); }
+    } catch (error) {
+      console.error(error);
+      toast.error("Network issue while registering bin. Please try again.");
+    }
   };
 
   const handleAddDriver = async (e: React.FormEvent) => {
@@ -151,14 +180,16 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
         body: JSON.stringify(newDriver)
       });
       if (res.ok) {
-        alert("Driver created successfully!");
+        toast.success("Driver account created successfully.");
         setNewDriver({ name: "", email: "", password: "" });
         await mutateDrivers();
       } else {
-        const errorData = await res.json();
-        alert(`Failed: ${errorData.error}`);
+        toast.error(await getApiErrorMessage(res, "Unable to create driver account right now."));
       }
-    } catch (error) { console.error(error); }
+    } catch (error) {
+      console.error(error);
+      toast.error("Network issue while creating driver account. Please try again.");
+    }
   };
 
   return (

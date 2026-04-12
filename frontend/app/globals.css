@@ -212,3 +212,23 @@ a {
   background: #d9efdf;
   color: #165a34;
 }
+
+[data-sonner-toaster] {
+  --normal-bg: #f8fcf9;
+  --normal-border: #d4e4d9;
+  --normal-text: #1c3125;
+  --success-bg: #ecf8f0;
+  --success-border: #a7d0b3;
+  --success-text: #195536;
+  --error-bg: #fff5f4;
+  --error-border: #f2c6c2;
+  --error-text: #8a2a26;
+  --warning-bg: #fff9ef;
+  --warning-border: #edd8a9;
+  --warning-text: #7d5a13;
+  --font-family: "Manrope", "Segoe UI", sans-serif;
+}
+
+[data-sonner-toast] {
+  box-shadow: 0 14px 34px rgba(27, 56, 39, 0.14);
+}
