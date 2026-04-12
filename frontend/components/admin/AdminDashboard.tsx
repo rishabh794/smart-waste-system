@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { apiFetch } from '../../lib/apiFetch';
 
 interface Bin {
   id: string;
@@ -20,12 +21,12 @@ export default function AdminDashboard() {
   const [selectedDriver, setSelectedDriver] = useState<string>("");
 
   const loadData = () => {
-    fetch("http://localhost:5000/api/bins", { headers: { "x-user-role": "admin" } })
+    apiFetch("/api/bins")
       .then((res) => res.json())
       .then((data) => setBins(data))
       .catch(console.error);
 
-    fetch("http://localhost:5000/api/users/drivers", { headers: { "x-user-role": "admin" } })
+    apiFetch("/api/users/drivers")
       .then((res) => res.json())
       .then((data) => setDrivers(data))
       .catch(console.error);
@@ -48,22 +49,18 @@ export default function AdminDashboard() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/routes", {
+      const res = await apiFetch("/api/routes", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-user-role": "admin" 
-        },
         body: JSON.stringify({
-          driverId: selectedDriver,
-          binIds: selectedBins
-        })
-      });
+            driverId: selectedDriver,
+            binIds: selectedBins
+           })
+        });
 
       if (res.ok) {
         alert("Route successfully dispatched!");
-        setSelectedBins([]); // Clear selection
-        loadData(); // AUTO-REFRESH THE UI!
+        setSelectedBins([]); 
+        loadData(); 
       } else {
         alert("Failed to create route.");
       }

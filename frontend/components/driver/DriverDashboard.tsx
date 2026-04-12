@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { apiFetch } from '../../lib/apiFetch';
 
 interface RouteData {
   routeId: string;
@@ -16,7 +17,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
   const [route, setRoute] = useState<RouteData | null>(null);
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/routes/driver/${userId}`)
+    apiFetch(`/api/routes/driver/${userId}`)
       .then((res) => res.json())
       .then((data) => setRoute(data))
       .catch((err) => console.error(err));
@@ -26,11 +27,10 @@ export default function DriverDashboard({ userId }: { userId: string }) {
     if (!route?.routeId) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/routes/${route.routeId}/bins/${binId}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      const res = await apiFetch(`/api/routes/${route.routeId}/bins/${binId}/status`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: newStatus })
+            });
 
       if (res.ok) {
         setRoute((prev) => {
