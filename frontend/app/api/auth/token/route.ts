@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const signed = jwt.sign(
     { id: token.id, role: token.role },
     process.env.NEXTAUTH_SECRET!,
-    { expiresIn: '1h' }
+    { expiresIn: '7d' }
   );
 
   return NextResponse.json({ token: signed });

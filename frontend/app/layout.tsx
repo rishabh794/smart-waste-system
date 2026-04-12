@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Providers } from "./Providers";
+import UniversalNavbar from "../components/navigation/UniversalNavbar";
 
 export const metadata = {
   title: "Smart Waste System",
@@ -14,7 +15,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <UniversalNavbar />
+          {children}
+        </Providers>
       </body>
     </html>
   );
