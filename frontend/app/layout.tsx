@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Providers } from "./Providers";
 import UniversalNavbar from "../components/navigation/UniversalNavbar";
+import UniversalFooter from "../components/navigation/UniversalFooter";
 
 export const metadata = {
   title: "Smart Waste System",
@@ -16,8 +17,11 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Providers>
-          <UniversalNavbar />
-          {children}
+          <div className="flex min-h-screen flex-col">
+            <UniversalNavbar />
+            <main className="flex-1">{children}</main>
+            <UniversalFooter />
+          </div>
         </Providers>
       </body>
     </html>

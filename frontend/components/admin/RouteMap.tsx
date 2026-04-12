@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 
@@ -42,7 +41,7 @@ export default function RouteMap({ bins }: { bins: Bin[] }) {
   const centerPosition: [number, number] = [30.316, 78.032]; 
 
   return (
-    <div className="h-[400px] w-full relative z-0">
+    <div className="relative z-0 h-100 w-full overflow-hidden rounded-xl border border-[#dce7df] bg-[#f7fcf8]">
       <MapContainer 
         center={centerPosition} 
         zoom={13} 
@@ -64,7 +63,7 @@ export default function RouteMap({ bins }: { bins: Bin[] }) {
               icon={getMarkerIcon(bin.status)} // NEW: Apply the custom icon
             >
               <Popup>
-                <div className="text-black min-w-[150px]">
+                <div className="min-w-36 text-black">
                   <strong className="text-lg">Bin #{bin.id.substring(0, 6)}</strong>
                   <div className="border-t border-gray-300 my-1"></div>
                   <div><strong>Zone:</strong> {bin.zone}</div>

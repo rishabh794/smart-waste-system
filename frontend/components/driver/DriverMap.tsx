@@ -8,7 +8,7 @@ const getMarkerIcon = (status: string, isDepot: boolean = false) => {
   if (isDepot) {
     return L.divIcon({
       className: 'custom-leaflet-icon',
-      html: `<div class="w-8 h-8 rounded-sm border-2 border-black bg-purple-600 shadow-lg flex items-center justify-center text-white font-bold text-xs">HQ</div>`,
+      html: `<div class="w-8 h-8 rounded-sm border-2 border-[#f2bf49] bg-[#146933] shadow-lg flex items-center justify-center text-white font-bold text-xs">HQ</div>`,
       iconSize: [32, 32], iconAnchor: [16, 16],
     });
   }
@@ -42,7 +42,7 @@ interface DriverMapProps {
 
 export default function DriverMap({ bins, routePolyline, depotCoords }: DriverMapProps) {
   return (
-    <div className="h-[400px] w-full relative z-0 border border-gray-600 mb-4">
+    <div className="relative z-0 mb-4 h-100 w-full overflow-hidden rounded-xl border border-[#dce7df] bg-[#f7fcf8]">
       <MapContainer 
         center={depotCoords} 
         zoom={13} 
@@ -56,7 +56,7 @@ export default function DriverMap({ bins, routePolyline, depotCoords }: DriverMa
         
         {/* Draw the Route Line */}
         {routePolyline.length > 0 && (
-          <Polyline positions={routePolyline} color="#3b82f6" weight={5} opacity={0.8} />
+          <Polyline positions={routePolyline} color="#1a7b3a" weight={5} opacity={0.85} />
         )}
 
         {/* The Depot Marker */}

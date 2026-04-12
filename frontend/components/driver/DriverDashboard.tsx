@@ -32,7 +32,7 @@ interface OsrmTripResponse {
 
 const DriverMap = dynamic(() => import('./DriverMap'), { 
   ssr: false, 
-  loading: () => <div className="h-[400px] w-full border border-gray-600 flex items-center justify-center bg-gray-900 text-gray-400 mb-4">Loading GPS Uplink...</div>
+  loading: () => <div className="h-100 w-full soft-surface mb-4 flex items-center justify-center text-[#557064]">Loading GPS Uplink...</div>
 });
 
 const DEPOT_COORDS: [number, number] = [30.316, 78.032];
@@ -151,31 +151,37 @@ export default function DriverDashboard({ userId }: { userId: string }) {
 
   if (!route || !route.routeId) {
     return (
-      <div className="mt-4 p-4 font-mono border border-gray-600 text-center">
-        No active routes. Enjoy the day off!
+      <div className="soft-surface mt-4 p-8 text-center">
+        <p className="text-sm font-black tracking-[0.16em] text-[#1a7b3a]">NO ACTIVE ROUTE</p>
+        <p className="mt-2 text-lg font-bold text-[#1f412f]">No active routes. Enjoy the day off!</p>
       </div>
     );
   }
 
   return (
-    <div className="border border-gray-600 p-4 mt-4">
-      <h2 className="text-xl font-bold mb-4">Driver Interface</h2>
+    <div className="space-y-6">
+      <div className="border-b border-[#e6efe9] pb-4">
+        <h2 className="text-2xl font-extrabold text-[#1f412f]">Driver Interface</h2>
+        <p className="mt-1 text-sm text-[#607267]">Track your assigned stops and update collection outcomes.</p>
+      </div>
+
       <DriverMap bins={route.bins} routePolyline={routePath} depotCoords={DEPOT_COORDS} />
-      <div className="border border-gray-600 p-4 mb-4">
-        <h3 className="font-bold mb-4">
+
+      <div className="overflow-hidden rounded-2xl border border-[#e4ece6] bg-[#fcfffd]">
+        <h3 className="px-4 pt-4 text-lg font-extrabold text-[#1f412f]">
           Today Route (ID: {route.routeId ? route.routeId.substring(0,8) + '...' : 'None'})
         </h3>
         
         {route.bins?.length > 0 ? (
           <>
-            <ul className="mb-4 space-y-2">
+            <ul className="mb-4 divide-y divide-[#edf3ee] border-y border-[#edf3ee]">
               {route.bins.map((bin) => (
-                <li key={bin.binId} className="flex flex-col p-3 border border-gray-600">
+                <li key={bin.binId} className="flex flex-col px-4 py-4 odd:bg-[#fcfffd] even:bg-[#f6fbf8]">
                   <div className="flex justify-between items-center mb-2">
-                    <span>Stop {bin.sequence}: Bin #{bin.binId.substring(0,5)} ({bin.zone})</span>
-                    <span className={`text-sm font-bold uppercase ${
-                      bin.status === 'collected' ? 'text-green-500' : 
-                      bin.status === 'overflowing' ? 'text-red-500' : 'text-gray-400'
+                    <span className="font-semibold text-[#244734]">Stop {bin.sequence}: Bin #{bin.binId.substring(0,5)} ({bin.zone})</span>
+                    <span className={`rounded-full px-2 py-1 text-xs font-extrabold uppercase ${
+                      bin.status === 'collected' ? 'bg-green-100 text-green-700' : 
+                      bin.status === 'overflowing' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
                     }`}>
                       {bin.status}
                     </span>
@@ -184,13 +190,13 @@ export default function DriverDashboard({ userId }: { userId: string }) {
                   <div className="flex gap-2">
                     <button 
                       onClick={() => updateBinStatus(bin.binId, 'collected')}
-                      className="border border-gray-600 hover:bg-gray-800 px-3 py-2 text-sm font-bold w-1/2 transition-colors"
+                      className="w-1/2 rounded-md border border-[#cfdacb] bg-[#eef5ea] px-3 py-2 text-sm font-bold text-[#17311f] transition hover:border-[#1a7b3a] hover:bg-[#dff0d8]"
                     >
                       Collected
                     </button>
                     <button 
                       onClick={() => updateBinStatus(bin.binId, 'overflowing')}
-                      className="border border-gray-600 hover:bg-gray-800 px-3 py-2 text-sm font-bold w-1/2 transition-colors"
+                      className="w-1/2 rounded-md border border-[#e8c4c4] bg-[#fff5f5] px-3 py-2 text-sm font-bold text-[#7d2222] transition hover:bg-[#ffe8e8]"
                     >
                       Overflowing
                     </button>
@@ -201,13 +207,13 @@ export default function DriverDashboard({ userId }: { userId: string }) {
 
             <button 
               onClick={handleCompleteRoute}
-              className="w-full border border-gray-600 p-4 mt-4 font-bold hover:bg-gray-800 transition-colors"
+              className="btn-primary mx-4 mb-4 mt-2 w-[calc(100%-2rem)]"
             >
               Finish Day Route
             </button>
           </>
         ) : (
-          <p className="mb-4 text-green-500 font-bold border border-gray-600 p-2">No bins assigned today. Enjoy the day off!</p>
+          <p className="mb-4 rounded-md border border-[#c8e6ce] bg-[#eefaf0] p-3 font-bold text-[#2c6f39]">No bins assigned today. Enjoy the day off!</p>
         )}
       </div>
     </div>

@@ -19,7 +19,11 @@ export default function ProtectedRoute({
   allowedRoles,
   redirectUnauthenticatedTo = "/login",
   redirectUnauthorizedTo = "/dashboard",
-  loadingFallback = <div className="p-4 font-mono max-w-4xl mx-auto">Loading session...</div>,
+  loadingFallback = (
+    <div className="site-container py-10">
+      <div className="soft-surface p-6 text-center text-sm font-semibold text-[#315242]">Loading session...</div>
+    </div>
+  ),
 }: ProtectedRouteProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
