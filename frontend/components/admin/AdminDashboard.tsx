@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { apiFetch } from '../../lib/apiFetch';
+import dynamic from 'next/dynamic';
 
 interface PendingRoute {
   routeId: string;
@@ -14,12 +15,20 @@ interface Bin {
   id: string;
   zone: string;
   status: string | null;
+  latitude: number;
+  longitude: number;
 }
 
 interface Driver {
   id: string;
   name: string;
 }
+
+// Dynamically import the map, disabling Server-Side Rendering
+const RouteMap = dynamic(() => import('./RouteMap'), { 
+  ssr: false,
+  loading: () => <div className="h-[400px] w-full border border-gray-600 flex items-center justify-center bg-gray-900 text-gray-400">Loading Map Satellite Uplink...</div>
+});
 
 export default function AdminDashboard() {
   const [bins, setBins] = useState<Bin[]>([]);
@@ -125,6 +134,10 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 mt-4">
+      <div className="border border-gray-600 p-4 bg-gray-900">
+        <h2 className="text-xl font-bold mb-4 text-white">Live Zone Map</h2>
+        <RouteMap bins={bins} />
+      </div>
       <div className="border border-gray-600 p-4">
         <h2 className="text-xl font-bold mb-4">Admin Control Center</h2>
         <div className="flex gap-4">
