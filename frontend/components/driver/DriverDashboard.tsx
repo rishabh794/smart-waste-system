@@ -57,9 +57,13 @@ export default function DriverDashboard({ userId }: { userId: string }) {
 
     try {
       const res = await apiFetch(`/api/routes/${route.routeId}/status`, { method: "PATCH" });
+      
       if (res.ok) {
         alert("Route completed! Great job today.");
         setRoute(null);
+      } else {
+        const errorData = await res.json();
+        alert(`❌ ${errorData.error}`);
       }
     } catch (error) {
       console.error(error);

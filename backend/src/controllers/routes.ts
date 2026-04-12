@@ -112,13 +112,32 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
 };
 
 export const completeRoute = async (req: Request, res: Response): Promise<any> => {
-  const routeId = req.params.routeId as string;
+  const routeIdParam = req.params.routeId;
+  const routeId = Array.isArray(routeIdParam) ? routeIdParam[0] : routeIdParam;
 
   if (!routeId) {
     return res.status(400).json({ error: 'Route ID is required' });
   }
 
   try {
+    // Fetch all bins assigned to this specific route
+    const assignedBins = await db.select()
+      .from(routeBins)
+      .where(eq(routeBins.routeId, routeId));
+
+    // Check if any bin has an empty or 'unknown' status
+    const hasUnresolvedBins = assignedBins.some(
+      bin => !bin.fillStatus || bin.fillStatus.toLowerCase() === 'unknown'
+    );
+
+    //  Block completion if work is unfinished
+    if (hasUnresolvedBins) {
+      return res.status(400).json({ 
+        error: 'Cannot finish route: You still have unresolved bins to check!' 
+      });
+    }
+
+    //  If all clear, mark as completed
     await db.update(routes)
       .set({ status: 'completed' })
       .where(eq(routes.id, routeId));
