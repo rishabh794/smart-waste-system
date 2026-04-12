@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { apiFetch } from '../../lib/apiFetch';
 import dynamic from 'next/dynamic';
+import useSWR from 'swr'; //Stale-While-Revalidate for data fetching and caching [Polling]
 
 type AdminDashboardSection = "dashboard" | "status" | "create";
 
@@ -26,6 +27,14 @@ interface Driver {
   name: string;
 }
 
+const fetcher = async (url: string) => {
+  const res = await apiFetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ${url}`);
+  }
+  return res.json();
+};
+
 // Dynamically import the map, disabling Server-Side Rendering
 const RouteMap = dynamic(() => import('./RouteMap'), {
   ssr: false,
@@ -33,36 +42,30 @@ const RouteMap = dynamic(() => import('./RouteMap'), {
 });
 
 export default function AdminDashboard({ section = "dashboard" }: { section?: AdminDashboardSection }) {
-  const [bins, setBins] = useState<Bin[]>([]);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedBins, setSelectedBins] = useState<string[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<string>("");
-  const [pendingRoutes, setPendingRoutes] = useState<PendingRoute[]>([]);
 
   const [newBin, setNewBin] = useState({ latitude: "", longitude: "", zone: "" });
   const [newDriver, setNewDriver] = useState({ name: "", email: "", password: "" });
 
-  const loadData = () => {
-    // Fetch bins and drivers
-    apiFetch("/api/bins")
-      .then((res) => res.json())
-      .then((data) => setBins(data))
-      .catch(console.error);
+  const {
+    data: bins = [],
+    mutate: mutateBins,
+  } = useSWR<Bin[]>("/api/bins", fetcher, {
+    refreshInterval: 5000,
+  });
 
-    apiFetch("/api/users/drivers")
-      .then((res) => res.json())
-      .then((data) => setDrivers(data))
-      .catch(console.error);
+  const {
+    data: drivers = [],
+    mutate: mutateDrivers,
+  } = useSWR<Driver[]>("/api/users/drivers", fetcher);
 
-    apiFetch("/api/routes/pending")
-      .then((res) => res.json())
-      .then((data) => setPendingRoutes(data))
-      .catch(console.error);
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
+  const {
+    data: pendingRoutes = [],
+    mutate: mutatePendingRoutes,
+  } = useSWR<PendingRoute[]>("/api/routes/pending", fetcher, {
+    refreshInterval: 5000,
+  });
 
   const toggleBinSelection = (binId: string) => {
     setSelectedBins((prev) =>
@@ -88,7 +91,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       if (res.ok) {
         alert("Route successfully dispatched!");
         setSelectedBins([]);
-        loadData();
+        await Promise.all([mutateBins(), mutatePendingRoutes()]);
       } else {
         alert("Failed to create route.");
       }
@@ -111,7 +114,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       if (res.ok) {
         alert("Bin added successfully!");
         setNewBin({ latitude: "", longitude: "", zone: "" });
-        loadData();
+        await mutateBins();
       }
     } catch (error) { console.error(error); }
   };
@@ -126,7 +129,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       if (res.ok) {
         alert("Driver created successfully!");
         setNewDriver({ name: "", email: "", password: "" });
-        loadData();
+        await mutateDrivers();
       } else {
         const errorData = await res.json();
         alert(`Failed: ${errorData.error}`);
