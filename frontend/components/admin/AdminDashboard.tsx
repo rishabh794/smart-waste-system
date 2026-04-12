@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 interface Bin {
   id: string;
   zone: string;
+ status: string;
 }
 
 export default function AdminDashboard() {
@@ -27,9 +28,17 @@ export default function AdminDashboard() {
         <div className="border border-gray-400 p-4 w-1/2">
           <h3 className="font-bold mb-2">Manage Bins ({bins.length} Total)</h3>
           <ul className="mb-4 space-y-2">
-            {bins.map((bin) => (
-              <li key={bin.id} className="text-sm bg-gray-500 p-2 border">
-                Bin #{bin.id.substring(0,8)}... | Zone: {bin.zone}
+            {bins.map((bin: Bin) => (
+              <li key={bin.id} className="text-sm p-3 border border-gray-400 flex justify-between items-center">
+                <span>Bin #{bin.id.substring(0,8)}... | Zone: {bin.zone}</span>
+                
+                <span className={`font-bold uppercase ${
+                  bin.status === 'collected' ? 'text-green-600' : 
+                  bin.status === 'overflowing' ? 'text-red-600' : 
+                  'text-gray-500'
+                }`}>
+                  {bin.status || 'UNASSIGNED'}
+                </span>
               </li>
             ))}
           </ul>

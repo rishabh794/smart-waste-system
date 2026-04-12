@@ -41,3 +41,27 @@ export const getDriverTodayRoute = async (req: Request, res: Response): Promise<
     res.status(500).json({ error: 'Failed to fetch route' });
   }
 };
+
+
+export const updateBinStatus = async (req: Request, res: Response): Promise<any> => {
+  const { routeId, binId } = req.params;
+  const { status } = req.body; 
+
+  if (!routeId || !binId || !status) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    // Update the specific bin on the specific route
+    await db.update(routeBins)
+      .set({ fillStatus: status })
+      .where(
+        eq(routeBins.routeId, routeId as string) && eq(routeBins.binId, binId as string)
+      );
+
+    return res.status(200).json({ message: `Bin ${binId} marked as ${status}` });
+  } catch (error) {
+    console.error('Update status error:', error);
+    return res.status(500).json({ error: 'Failed to update bin status' });
+  }
+};
