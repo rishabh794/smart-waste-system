@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
-import { routes, routeBins, bins } from '../db/schema/index.js';
-import {and,desc, eq } from 'drizzle-orm';
+import { routes, routeBins, bins, users } from '../db/schema/index.js';
+import {and,desc, eq , inArray} from 'drizzle-orm';
 
 export const getDriverTodayRoute = async (req: Request, res: Response): Promise<any> => {
   const driverId = req.params.driverId as string;
@@ -18,7 +18,12 @@ export const getDriverTodayRoute = async (req: Request, res: Response): Promise<
     const [latestRoute] = await db
       .select()
       .from(routes)
-      .where(eq(routes.driverId, driverId))
+      .where(
+        and(
+          eq(routes.driverId, driverId),
+          eq(routes.status, 'pending') // Only grab unfinished routes!
+        )
+      )
       .orderBy(desc(routes.assignedDate))
       .limit(1);
 
@@ -122,5 +127,49 @@ export const completeRoute = async (req: Request, res: Response): Promise<any> =
   } catch (error) {
     console.error('Complete route error:', error);
     return res.status(500).json({ error: 'Failed to complete route' });
+  }
+};
+
+export const getPendingRoutes = async (req: Request, res: Response): Promise<any> => {
+  try {
+    // Get all routes that are currently pending
+    const activeRoutes = await db.select({
+      routeId: routes.id,
+      driverName: users.name,
+      assignedDate: routes.assignedDate,
+    })
+    .from(routes)
+    .innerJoin(users, eq(routes.driverId, users.id))
+    .where(eq(routes.status, 'pending'));
+
+    if (activeRoutes.length === 0) return res.status(200).json([]);
+
+    //  Fetch the bins for these active routes to calculate progress
+    const routeIds = activeRoutes.map(r => r.routeId);
+    
+    const activeRouteBins = await db.select({
+      routeId: routeBins.routeId,
+      status: routeBins.fillStatus
+    })
+    .from(routeBins)
+    .where(inArray(routeBins.routeId, routeIds));
+
+    // Assemble the payload with progress tracking
+    const dashboardData = activeRoutes.map(route => {
+      const binsForThisRoute = activeRouteBins.filter(b => b.routeId === route.routeId);
+      const totalBins = binsForThisRoute.length;
+      const collectedBins = binsForThisRoute.filter(b => b.status === 'collected').length;
+
+      return {
+        ...route,
+        progress: `${collectedBins} / ${totalBins} Collected`,
+        isComplete: collectedBins === totalBins && totalBins > 0
+      };
+    });
+
+    return res.status(200).json(dashboardData);
+  } catch (error) {
+    console.error('Active routes error:', error);
+    return res.status(500).json({ error: 'Failed to fetch active routes' });
   }
 };

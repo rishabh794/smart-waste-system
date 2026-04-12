@@ -3,6 +3,13 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from '../../lib/apiFetch';
 
+interface PendingRoute {
+  routeId: string;
+  driverName: string;
+  progress: string;
+  isComplete: boolean;
+}
+
 interface Bin {
   id: string;
   zone: string;
@@ -19,6 +26,7 @@ export default function AdminDashboard() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [selectedBins, setSelectedBins] = useState<string[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<string>("");
+  const [pendingRoutes, setPendingRoutes] = useState<PendingRoute[]>([]);
 
   const [newBin, setNewBin] = useState({ latitude: "", longitude: "", zone: "" });
   const [newDriver, setNewDriver] = useState({ name: "", email: "", password: "" });
@@ -33,6 +41,11 @@ export default function AdminDashboard() {
     apiFetch("/api/users/drivers")
       .then((res) => res.json())
       .then((data) => setDrivers(data))
+      .catch(console.error);
+
+    apiFetch("/api/routes/pending")
+      .then((res) => res.json())
+      .then((data) => setPendingRoutes(data))
       .catch(console.error);
   };
 
@@ -127,14 +140,16 @@ export default function AdminDashboard() {
                       className="mr-3"
                       checked={selectedBins.includes(bin.id)}
                       onChange={() => toggleBinSelection(bin.id)}
+                      disabled={bin.status === 'ASSIGNED_TODAY'} // PREVENT DOUBLE BOOKING
                     />
                     <span>Bin #{bin.id.substring(0,6)} | Zone: {bin.zone}</span>
                   </div>
                   <span className={`font-bold uppercase ${
                     bin.status === 'collected' ? 'text-green-500' : 
-                    bin.status === 'overflowing' ? 'text-red-500' : 'text-gray-400'
+                    bin.status === 'overflowing' ? 'text-red-500' : 
+                    bin.status === 'ASSIGNED_TODAY' ? 'text-yellow-500' : 'text-gray-400'
                   }`}>
-                    {bin.status || 'UNASSIGNED'}
+                    {bin.status === 'ASSIGNED_TODAY' ? 'ON ROUTE' : (bin.status || 'UNASSIGNED')}
                   </span>
                 </li>
               ))}
@@ -168,6 +183,32 @@ export default function AdminDashboard() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="border border-gray-600 p-4 bg-gray-900">
+        <h3 className="font-bold mb-4 text-lg text-white">Active Operations (Pending Routes)</h3>
+        {pendingRoutes.length === 0 ? (
+          <p className="text-gray-400 text-sm italic">No active routes currently deployed.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {pendingRoutes.map(route => (
+              <div key={route.routeId} className="border border-gray-600 p-3 bg-gray-800">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-bold text-white">{route.driverName}</span>
+                  <span className={`text-xs font-bold px-2 py-1 ${route.isComplete ? 'bg-green-600 text-white' : 'bg-yellow-600 text-black'}`}>
+                    {route.isComplete ? 'READY TO COMPLETE' : 'IN PROGRESS'}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-300">
+                  Route ID: {route.routeId.substring(0, 8)}...
+                </div>
+                <div className="mt-2 text-sm font-mono text-gray-400">
+                  Progress: <span className="text-white">{route.progress}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-4">
