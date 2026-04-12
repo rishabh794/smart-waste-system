@@ -13,7 +13,7 @@ interface PendingRoute {
   isComplete: boolean;
 }
 
-interface Bin {
+export interface Bin {
   id: string;
   zone: string;
   status: string | null;

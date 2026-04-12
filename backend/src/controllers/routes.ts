@@ -3,6 +3,12 @@ import { db } from '../db/db.js';
 import { routes, routeBins, bins, users } from '../db/schema/index.js';
 import {and,desc, eq , inArray} from 'drizzle-orm';
 
+const getISTDate = () => {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+  }).format(new Date());
+};
+
 export const getDriverTodayRoute = async (req: Request, res: Response): Promise<any> => {
   const driverId = req.params.driverId as string;
 
@@ -85,7 +91,7 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
     // Create the Route
     const [newRoute] = await db.insert(routes).values({
       driverId,
-      assignedDate: new Date().toISOString(), 
+      assignedDate: getISTDate(), 
       status: 'pending'
     }).returning();
 
