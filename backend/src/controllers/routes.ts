@@ -105,3 +105,22 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
     return res.status(500).json({ error: 'Failed to create route' });
   }
 };
+
+export const completeRoute = async (req: Request, res: Response): Promise<any> => {
+  const routeId = req.params.routeId as string;
+
+  if (!routeId) {
+    return res.status(400).json({ error: 'Route ID is required' });
+  }
+
+  try {
+    await db.update(routes)
+      .set({ status: 'completed' })
+      .where(eq(routes.id, routeId));
+
+    return res.status(200).json({ message: 'Route marked as completed' });
+  } catch (error) {
+    console.error('Complete route error:', error);
+    return res.status(500).json({ error: 'Failed to complete route' });
+  }
+};

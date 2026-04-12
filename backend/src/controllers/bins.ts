@@ -26,3 +26,24 @@ export const getAllBins = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch bins' });
   }
 };
+
+export const createBin = async (req: Request, res: Response): Promise<any> => {
+  const { latitude, longitude, zone } = req.body;
+
+  if (!latitude || !longitude) {
+    return res.status(400).json({ error: 'Latitude and Longitude are required' });
+  }
+
+  try {
+    const [newBin] = await db.insert(bins).values({
+      latitude,
+      longitude,
+      zone: zone || 'Unassigned'
+    }).returning();
+
+    return res.status(201).json(newBin);
+  } catch (error) {
+    console.error('Create bin error:', error);
+    return res.status(500).json({ error: 'Failed to create bin' });
+  }
+};
