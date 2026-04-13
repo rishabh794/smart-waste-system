@@ -54,6 +54,7 @@ const getApiErrorMessage = async (res: Response, fallback: string) => {
 export default function DriverDashboard({ userId }: { userId: string }) {
   const [route, setRoute] = useState<RouteData | null>(null);
   const [routePath, setRoutePath] = useState<[number, number][]>([]);
+  const [binStatusUpdate, setBinStatusUpdate] = useState<{ binId: string; status: string } | null>(null);
   const [isConfirmingComplete, setIsConfirmingComplete] = useState(false);
   const [isCompletingRoute, setIsCompletingRoute] = useState(false);
 
@@ -124,7 +125,9 @@ export default function DriverDashboard({ userId }: { userId: string }) {
   }, [route?.routeId]);
 
   const updateBinStatus = async (binId: string, newStatus: string) => {
-    if (!route?.routeId) return;
+    if (!route?.routeId || binStatusUpdate) return;
+
+    setBinStatusUpdate({ binId, status: newStatus });
 
     try {
       const res = await apiFetch(`/api/routes/${route.routeId}/bins/${binId}/status`, {
@@ -149,6 +152,8 @@ export default function DriverDashboard({ userId }: { userId: string }) {
     } catch (error) {
       console.error("Network error:", error);
       toast.error("Network issue while updating bin status. Please try again.");
+    } finally {
+      setBinStatusUpdate(null);
     }
   };
 
@@ -215,15 +220,17 @@ export default function DriverDashboard({ userId }: { userId: string }) {
                   <div className="flex gap-2">
                     <button 
                       onClick={() => updateBinStatus(bin.binId, 'collected')}
-                      className="w-1/2 rounded-md border border-[#cfdacb] bg-[#eef5ea] px-3 py-2 text-sm font-bold text-[#17311f] transition hover:border-[#1a7b3a] hover:bg-[#dff0d8]"
+                      disabled={Boolean(binStatusUpdate)}
+                      className="w-1/2 rounded-md border border-[#cfdacb] bg-[#eef5ea] px-3 py-2 text-sm font-bold text-[#17311f] transition hover:border-[#1a7b3a] hover:bg-[#dff0d8] disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      Collected
+                      {binStatusUpdate?.binId === bin.binId && binStatusUpdate.status === "collected" ? "Updating..." : "Collected"}
                     </button>
                     <button 
                       onClick={() => updateBinStatus(bin.binId, 'overflowing')}
-                      className="w-1/2 rounded-md border border-[#e8c4c4] bg-[#fff5f5] px-3 py-2 text-sm font-bold text-[#7d2222] transition hover:bg-[#ffe8e8]"
+                      disabled={Boolean(binStatusUpdate)}
+                      className="w-1/2 rounded-md border border-[#e8c4c4] bg-[#fff5f5] px-3 py-2 text-sm font-bold text-[#7d2222] transition hover:bg-[#ffe8e8] disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      Overflowing
+                      {binStatusUpdate?.binId === bin.binId && binStatusUpdate.status === "overflowing" ? "Updating..." : "Overflowing"}
                     </button>
                   </div>
                 </li>

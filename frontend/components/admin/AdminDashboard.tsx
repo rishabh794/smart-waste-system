@@ -60,6 +60,9 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
   const [selectedDriver, setSelectedDriver] = useState<string>("");
   const [showNewDriverPassword, setShowNewDriverPassword] = useState(false);
   const [isDriverMenuOpen, setIsDriverMenuOpen] = useState(false);
+  const [isCreatingRoute, setIsCreatingRoute] = useState(false);
+  const [isAddingBin, setIsAddingBin] = useState(false);
+  const [isAddingDriver, setIsAddingDriver] = useState(false);
   const driverMenuRef = useRef<HTMLDivElement | null>(null);
 
   const [newBin, setNewBin] = useState({ latitude: "", longitude: "", zone: "" });
@@ -112,10 +115,14 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
   };
 
   const handleCreateRoute = async () => {
+    if (isCreatingRoute) return;
+
     if (!selectedDriver || selectedBins.length === 0) {
       toast.warning("Select a driver and at least one bin before dispatching.");
       return;
     }
+
+    setIsCreatingRoute(true);
 
     try {
       const res = await apiFetch("/api/routes", {
@@ -136,11 +143,15 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     } catch (error) {
       console.error(error);
       toast.error("Network issue while creating route. Please try again.");
+    } finally {
+      setIsCreatingRoute(false);
     }
   };
 
   const handleAddBin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isAddingBin) return;
 
     const latitude = parseFloat(newBin.latitude);
     const longitude = parseFloat(newBin.longitude);
@@ -149,6 +160,8 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       toast.warning("Enter valid latitude and longitude values.");
       return;
     }
+
+    setIsAddingBin(true);
 
     try {
       const res = await apiFetch("/api/bins", {
@@ -169,11 +182,18 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     } catch (error) {
       console.error(error);
       toast.error("Network issue while registering bin. Please try again.");
+    } finally {
+      setIsAddingBin(false);
     }
   };
 
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isAddingDriver) return;
+
+    setIsAddingDriver(true);
+
     try {
       const res = await apiFetch("/api/users/drivers", {
         method: "POST",
@@ -189,6 +209,8 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     } catch (error) {
       console.error(error);
       toast.error("Network issue while creating driver account. Please try again.");
+    } finally {
+      setIsAddingDriver(false);
     }
   };
 
@@ -289,8 +311,12 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
                 Selected Bins: {selectedBins.length}
               </div>
 
-              <button onClick={handleCreateRoute} className="btn-primary w-full">
-                Dispatch To Driver
+              <button
+                onClick={handleCreateRoute}
+                disabled={isCreatingRoute}
+                className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isCreatingRoute ? "Dispatching Route..." : "Dispatch To Driver"}
               </button>
             </aside>
           </section>
@@ -339,8 +365,12 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
               <input type="text" placeholder="Zone Name (e.g. North)" required
                 className="input-clean"
                 value={newBin.zone} onChange={e => setNewBin({...newBin, zone: e.target.value})} />
-              <button type="submit" className="btn-primary w-full">
-                Add Bin
+              <button
+                type="submit"
+                disabled={isAddingBin}
+                className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isAddingBin ? "Adding Bin..." : "Add Bin"}
               </button>
             </form>
           </div>
@@ -367,8 +397,12 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
                   {showNewDriverPassword ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
-              <button type="submit" className="btn-primary w-full">
-                Create Driver Account
+              <button
+                type="submit"
+                disabled={isAddingDriver}
+                className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isAddingDriver ? "Creating Driver..." : "Create Driver Account"}
               </button>
             </form>
           </div>
