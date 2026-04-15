@@ -65,6 +65,7 @@ export default function UniversalFooter() {
               <input
                 type="email"
                 placeholder="Enter your email..."
+                suppressHydrationWarning
                 className="w-full bg-transparent px-4 py-2 text-sm font-medium text-[#203329] placeholder:text-[#687d72] outline-none"
               />
               <button

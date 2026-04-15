@@ -1,4 +1,3 @@
-// backend/src/db/drop.ts
 import * as dotenv from 'dotenv';
 dotenv.config();
 

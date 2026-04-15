@@ -11,7 +11,6 @@ interface Bin {
   status: string | null;
 }
 
-// NEW: Dynamic Icon Generator
 const getMarkerIcon = (status: string | null) => {
   let bgColor = 'bg-gray-500'; // Default UNASSIGNED
   let pulse = '';
@@ -20,7 +19,7 @@ const getMarkerIcon = (status: string | null) => {
   if (status === 'ASSIGNED_TODAY') bgColor = 'bg-yellow-500';
   if (status === 'overflowing') {
     bgColor = 'bg-red-500';
-    pulse = 'animate-pulse'; // Make overflowing bins flash!
+    pulse = 'animate-pulse'; 
   }
 
   const html = `
@@ -29,7 +28,7 @@ const getMarkerIcon = (status: string | null) => {
   `;
 
   return L.divIcon({
-    className: 'custom-leaflet-icon', // Removes default Leaflet styling
+    className: 'custom-leaflet-icon', 
     html: html,
     iconSize: [24, 24],
     iconAnchor: [12, 12], // Centers the circle on the exact coordinate
@@ -60,7 +59,7 @@ export default function RouteMap({ bins }: { bins: Bin[] }) {
             <Marker 
               key={bin.id} 
               position={[bin.latitude, bin.longitude]}
-              icon={getMarkerIcon(bin.status)} // NEW: Apply the custom icon
+              icon={getMarkerIcon(bin.status)} 
             >
               <Popup>
                 <div className="min-w-36 text-black">

@@ -19,7 +19,10 @@ const adminLinks = [
   { href: "/create", label: "Create" },
 ];
 
-const driverLinks = [{ href: "/dashboard", label: "Dashboard" }];
+const driverLinks = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/driver/stats", label: "My Stats" },
+];
 
 export default function UniversalNavbar() {
   const { data: session, status } = useSession();

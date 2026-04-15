@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
-import { users } from '../db/schema/index.js';
-import { eq } from 'drizzle-orm';
+import { users , routes , routeBins} from '../db/schema/index.js';
+import { eq, and, sql, gte } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 
 export const getDrivers = async (req: Request, res: Response) => {
@@ -53,3 +53,85 @@ export const createDriver = async (req: Request, res: Response): Promise<any> =>
     return res.status(500).json({ error: 'Failed to create driver account' });
   }
 };
+
+export const getDriverStats = async (req: Request<{ driverId: string }>, res: Response) => {
+  try {
+    const { driverId } = req.params;
+
+    if (!driverId) {
+      return res.status(400).json({ error: 'Driver ID is required' });
+    }
+
+    // Calculate Total Routes Completed
+    const completedRoutesResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(routes)
+      .where(
+        and(
+          eq(routes.driverId, driverId),
+          eq(routes.status, 'completed')
+        )
+      );
+
+    // Calculate Lifetime Bin Health (Collected vs Overflowing)
+    const binStats = await db
+      .select({
+        fillStatus: routeBins.fillStatus,
+        count: sql<number>`count(*)`
+      })
+      .from(routeBins)
+      .innerJoin(routes, eq(routeBins.routeId, routes.id))
+      .where(eq(routes.driverId, driverId))
+      .groupBy(routeBins.fillStatus);
+
+    let collected = 0;
+    let overflowing = 0;
+    
+    binStats.forEach(stat => {
+      if (stat.fillStatus === 'collected') collected = Number(stat.count);
+      if (stat.fillStatus === 'overflowing') overflowing = Number(stat.count);
+    });
+
+    // Return daily collected-bin counts for the recent 8 weeks to support weekly pagination.
+    const velocityWindowDays = 56;
+    const velocityStartDate = new Date();
+    velocityStartDate.setUTCDate(velocityStartDate.getUTCDate() - (velocityWindowDays - 1));
+    const formattedDate = velocityStartDate.toISOString().slice(0, 10);
+
+    const weeklyVelocity = await db
+      .select({
+        date: routes.assignedDate,
+        count: sql<number>`count(*)`
+      })
+      .from(routeBins)
+      .innerJoin(routes, eq(routeBins.routeId, routes.id))
+      .where(
+        and(
+          eq(routes.driverId, driverId),
+          eq(routeBins.fillStatus, 'collected'),
+          gte(routes.assignedDate, formattedDate) 
+        )
+      )
+      .groupBy(routes.assignedDate)
+      .orderBy(routes.assignedDate);
+
+    // Send the perfectly formatted payload to the frontend
+    return res.status(200).json({
+      totalRoutesCompleted: Number(completedRoutesResult[0]?.count) || 0,
+      binHealth: {
+        collected,
+        overflowing,
+        total: collected + overflowing,
+        overflowRatio: collected + overflowing > 0 
+            ? Math.round((overflowing / (collected + overflowing)) * 100) 
+            : 0
+      },
+      weeklyVelocity
+    });
+
+  } catch (error) {
+    console.error('Error fetching driver stats:', error);
+    return res.status(500).json({ error: 'Failed to fetch driver stats' });
+  }
+};
+

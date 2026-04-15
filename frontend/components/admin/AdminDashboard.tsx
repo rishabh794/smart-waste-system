@@ -29,6 +29,7 @@ interface Driver {
 }
 
 const fetcher = async (url: string) => {
+  // API call helper used by SWR fetchers.
   const res = await apiFetch(url);
   if (!res.ok) {
     throw new Error(`Failed to fetch ${url}`);
@@ -56,13 +57,17 @@ const RouteMap = dynamic(() => import('./RouteMap'), {
 });
 
 export default function AdminDashboard({ section = "dashboard" }: { section?: AdminDashboardSection }) {
+  // Important selection state used by route dispatch flow.
   const [selectedBins, setSelectedBins] = useState<string[]>([]);
+  // Important selection state used by route dispatch flow.
   const [selectedDriver, setSelectedDriver] = useState<string>("");
   const [showNewDriverPassword, setShowNewDriverPassword] = useState(false);
   const [isDriverMenuOpen, setIsDriverMenuOpen] = useState(false);
+  // Important request states to prevent duplicate submissions.
   const [isCreatingRoute, setIsCreatingRoute] = useState(false);
   const [isAddingBin, setIsAddingBin] = useState(false);
   const [isAddingDriver, setIsAddingDriver] = useState(false);
+  // useRef: keep dropdown root for outside-click detection.
   const driverMenuRef = useRef<HTMLDivElement | null>(null);
 
   const [newBin, setNewBin] = useState({ latitude: "", longitude: "", zone: "" });
@@ -72,6 +77,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     data: bins = [],
     mutate: mutateBins,
   } = useSWR<Bin[]>("/api/bins", fetcher, {
+    // SWR polling keeps map/status data fresh.
     refreshInterval: 5000,
   });
 
@@ -84,12 +90,14 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     data: pendingRoutes = [],
     mutate: mutatePendingRoutes,
   } = useSWR<PendingRoute[]>("/api/routes/pending", fetcher, {
+    // SWR polling keeps route progress fresh.
     refreshInterval: 5000,
   });
 
   const selectedDriverName =
     drivers.find((driver) => driver.id === selectedDriver)?.name ?? "-- Choose a Driver --";
 
+  // useEffect: close dropdown when user clicks outside the menu.
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (!driverMenuRef.current) return;
@@ -125,6 +133,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     setIsCreatingRoute(true);
 
     try {
+      // API call: create and dispatch a route for selected bins/driver.
       const res = await apiFetch("/api/routes", {
         method: "POST",
         body: JSON.stringify({
@@ -164,6 +173,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     setIsAddingBin(true);
 
     try {
+      // API call: register a new bin in the system.
       const res = await apiFetch("/api/bins", {
         method: "POST",
         body: JSON.stringify({
@@ -195,6 +205,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     setIsAddingDriver(true);
 
     try {
+      // API call: create a new driver account.
       const res = await apiFetch("/api/users/drivers", {
         method: "POST",
         body: JSON.stringify(newDriver)
