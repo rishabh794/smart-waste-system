@@ -2,6 +2,14 @@ import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
 import { routes, routeBins, bins, users } from '../db/schema/index.js';
 import {and,desc, eq , inArray} from 'drizzle-orm';
+import {
+  createRouteBodySchema,
+  driverIdParamsSchema,
+  getValidationErrorMessage,
+  routeBinParamsSchema,
+  routeIdParamsSchema,
+  updateBinStatusBodySchema,
+} from '../validation/schemas.js';
 
 const getISTDate = () => {
   return new Intl.DateTimeFormat('en-CA', {
@@ -10,11 +18,13 @@ const getISTDate = () => {
 };
 
 export const getDriverTodayRoute = async (req: Request, res: Response): Promise<any> => {
-  const driverId = req.params.driverId as string;
+  const parsedParams = driverIdParamsSchema.safeParse(req.params);
 
-  if (!driverId) {
-    return res.status(400).json({ error: 'Driver ID is required' });
+  if (!parsedParams.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedParams.error) });
   }
+
+  const { driverId } = parsedParams.data;
 
   if (req.user!.role === 'driver' && req.user!.id !== driverId) {
     return res.status(403).json({ error: 'Forbidden: Cannot access another driver\'s route' });
@@ -59,13 +69,18 @@ export const getDriverTodayRoute = async (req: Request, res: Response): Promise<
 };
 
 export const updateBinStatus = async (req: Request, res: Response): Promise<any> => {
-  const routeId = req.params.routeId as string;
-  const binId = req.params.binId as string;
-  const { status } = req.body; 
-
-  if (!routeId || !binId || !status) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  const parsedParams = routeBinParamsSchema.safeParse(req.params);
+  if (!parsedParams.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedParams.error) });
   }
+
+  const parsedBody = updateBinStatusBodySchema.safeParse(req.body);
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
+  }
+
+  const { routeId, binId } = parsedParams.data;
+  const { status } = parsedBody.data;
 
   try {
     // Update the specific bin on the specific route
@@ -81,11 +96,13 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
 };
 
 export const createRoute = async (req: Request, res: Response): Promise<any> => {
-  const { driverId, binIds } = req.body;
+  const parsedBody = createRouteBodySchema.safeParse(req.body);
 
-  if (!driverId || !binIds || !Array.isArray(binIds) || binIds.length === 0) {
-    return res.status(400).json({ error: 'Driver ID and Bin IDs are required' });
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
   }
+
+  const { driverId, binIds } = parsedBody.data;
 
   try {
     // Create the Route
@@ -118,12 +135,13 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
 };
 
 export const completeRoute = async (req: Request, res: Response): Promise<any> => {
-  const routeIdParam = req.params.routeId;
-  const routeId = Array.isArray(routeIdParam) ? routeIdParam[0] : routeIdParam;
+  const parsedParams = routeIdParamsSchema.safeParse(req.params);
 
-  if (!routeId) {
-    return res.status(400).json({ error: 'Route ID is required' });
+  if (!parsedParams.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedParams.error) });
   }
+
+  const { routeId } = parsedParams.data;
 
   try {
     // Fetch all bins assigned to this specific route

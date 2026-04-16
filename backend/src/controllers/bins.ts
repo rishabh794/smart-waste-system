@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
 import { bins , routeBins, routes} from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
+import { createBinBodySchema, getValidationErrorMessage } from '../validation/schemas.js';
 
 export const getAllBins = async (req: Request, res: Response) => {
   try {
@@ -42,11 +43,13 @@ export const getAllBins = async (req: Request, res: Response) => {
 };
 
 export const createBin = async (req: Request, res: Response): Promise<any> => {
-  const { latitude, longitude, zone } = req.body;
+  const parsedBody = createBinBodySchema.safeParse(req.body);
 
-  if (!latitude || !longitude) {
-    return res.status(400).json({ error: 'Latitude and Longitude are required' });
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
   }
+
+  const { latitude, longitude, zone } = parsedBody.data;
 
   try {
     const [newBin] = await db.insert(bins).values({

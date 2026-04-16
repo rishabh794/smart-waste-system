@@ -5,6 +5,12 @@ import { apiFetch } from '../../lib/apiFetch';
 import dynamic from 'next/dynamic';
 import useSWR from 'swr'; //Stale-While-Revalidate for data fetching and caching [Polling]
 import { toast } from "sonner";
+import {
+  createBinFormSchema,
+  createDriverFormSchema,
+  createRouteFormSchema,
+  getValidationErrorMessage,
+} from '@/lib/validation';
 
 type AdminDashboardSection = "dashboard" | "status" | "create";
 
@@ -125,8 +131,13 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
   const handleCreateRoute = async () => {
     if (isCreatingRoute) return;
 
-    if (!selectedDriver || selectedBins.length === 0) {
-      toast.warning("Select a driver and at least one bin before dispatching.");
+    const parsedPayload = createRouteFormSchema.safeParse({
+      driverId: selectedDriver,
+      binIds: selectedBins,
+    });
+
+    if (!parsedPayload.success) {
+      toast.warning(getValidationErrorMessage(parsedPayload.error));
       return;
     }
 
@@ -136,10 +147,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       // API call: create and dispatch a route for selected bins/driver.
       const res = await apiFetch("/api/routes", {
         method: "POST",
-        body: JSON.stringify({
-          driverId: selectedDriver,
-          binIds: selectedBins
-        })
+        body: JSON.stringify(parsedPayload.data)
       });
 
       if (res.ok) {
@@ -162,11 +170,9 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
 
     if (isAddingBin) return;
 
-    const latitude = parseFloat(newBin.latitude);
-    const longitude = parseFloat(newBin.longitude);
-
-    if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
-      toast.warning("Enter valid latitude and longitude values.");
+    const parsedPayload = createBinFormSchema.safeParse(newBin);
+    if (!parsedPayload.success) {
+      toast.warning(getValidationErrorMessage(parsedPayload.error));
       return;
     }
 
@@ -176,11 +182,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       // API call: register a new bin in the system.
       const res = await apiFetch("/api/bins", {
         method: "POST",
-        body: JSON.stringify({
-          latitude,
-          longitude,
-          zone: newBin.zone
-        })
+        body: JSON.stringify(parsedPayload.data)
       });
       if (res.ok) {
         toast.success("Bin registered successfully.");
@@ -202,13 +204,19 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
 
     if (isAddingDriver) return;
 
+    const parsedPayload = createDriverFormSchema.safeParse(newDriver);
+    if (!parsedPayload.success) {
+      toast.warning(getValidationErrorMessage(parsedPayload.error));
+      return;
+    }
+
     setIsAddingDriver(true);
 
     try {
       // API call: create a new driver account.
       const res = await apiFetch("/api/users/drivers", {
         method: "POST",
-        body: JSON.stringify(newDriver)
+        body: JSON.stringify(parsedPayload.data)
       });
       if (res.ok) {
         toast.success("Driver account created successfully.");

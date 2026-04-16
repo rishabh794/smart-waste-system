@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { authenticatedUserSchema, loginFormSchema } from "@/lib/validation";
 
 const handler = NextAuth({
   providers: [
@@ -10,21 +11,33 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
+        const parsedCredentials = loginFormSchema.safeParse({
+          email: credentials?.email,
+          password: credentials?.password,
+        });
+
+        if (!parsedCredentials.success) {
+          return null;
+        }
+
         const res = await fetch("http://localhost:5000/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: credentials?.email,
-            password: credentials?.password,
-          }),
+          body: JSON.stringify(parsedCredentials.data),
         });
 
-        const user = await res.json();
-
-        if (res.ok && user) {
-          return user;
+        if (!res.ok) {
+          return null;
         }
-        return null;
+
+        const user = await res.json();
+        const parsedUser = authenticatedUserSchema.safeParse(user);
+
+        if (!parsedUser.success) {
+          return null;
+        }
+
+        return parsedUser.data;
       }
     })
   ],

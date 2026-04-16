@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
+import { getValidationErrorMessage, loginFormSchema } from "@/lib/validation";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,13 +19,19 @@ export default function LoginPage() {
     e.preventDefault();
     if (isSubmitting) return;
 
+    const parsedCredentials = loginFormSchema.safeParse({ email, password });
+    if (!parsedCredentials.success) {
+      setError(getValidationErrorMessage(parsedCredentials.error));
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
     try {
       const res = await signIn("credentials", {
-        email,
-        password,
+        email: parsedCredentials.data.email,
+        password: parsedCredentials.data.password,
         redirect: false,
       });
 

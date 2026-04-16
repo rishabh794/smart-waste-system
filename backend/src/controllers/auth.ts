@@ -3,9 +3,16 @@ import { db } from '../db/db.js';
 import { users } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
+import { getValidationErrorMessage, loginBodySchema } from '../validation/schemas.js';
 
 export const loginUser = async (req: Request, res: Response): Promise<any> => {
-  const { email, password } = req.body;
+  const parsedBody = loginBodySchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
+  }
+
+  const { email, password } = parsedBody.data;
 
   try {
     const result = await db.select().from(users).where(eq(users.email, email));

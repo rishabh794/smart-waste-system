@@ -3,6 +3,11 @@ import { db } from '../db/db.js';
 import { users , routes , routeBins} from '../db/schema/index.js';
 import { eq, and, sql, gte } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
+import {
+  createDriverBodySchema,
+  driverIdParamsSchema,
+  getValidationErrorMessage,
+} from '../validation/schemas.js';
 
 export const getDrivers = async (req: Request, res: Response) => {
   try {
@@ -20,11 +25,13 @@ export const getDrivers = async (req: Request, res: Response) => {
 };
 
 export const createDriver = async (req: Request, res: Response): Promise<any> => {
-  const { name, email, password, phone } = req.body;
+  const parsedBody = createDriverBodySchema.safeParse(req.body);
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'Name, email, and password are required' });
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
   }
+
+  const { name, email, password, phone } = parsedBody.data;
 
   try {
     // Check if user already exists
@@ -56,11 +63,13 @@ export const createDriver = async (req: Request, res: Response): Promise<any> =>
 
 export const getDriverStats = async (req: Request<{ driverId: string }>, res: Response) => {
   try {
-    const { driverId } = req.params;
+    const parsedParams = driverIdParamsSchema.safeParse(req.params);
 
-    if (!driverId) {
-      return res.status(400).json({ error: 'Driver ID is required' });
+    if (!parsedParams.success) {
+      return res.status(400).json({ error: getValidationErrorMessage(parsedParams.error) });
     }
+
+    const { driverId } = parsedParams.data;
 
     // Calculate Total Routes Completed
     const completedRoutesResult = await db
