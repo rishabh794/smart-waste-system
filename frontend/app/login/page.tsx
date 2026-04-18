@@ -1,14 +1,24 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { getValidationErrorMessage, loginFormSchema } from "@/lib/validation";
 
+const DEFAULT_REDIRECT_PATH = "/dashboard";
+
+const getSafeRedirectPath = (value: string | null) => {
+  if (!value) return DEFAULT_REDIRECT_PATH;
+  if (!value.startsWith("/") || value.startsWith("//")) return DEFAULT_REDIRECT_PATH;
+  if (value.startsWith("/login")) return DEFAULT_REDIRECT_PATH;
+  return value;
+};
+
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -29,9 +39,12 @@ export default function LoginPage() {
     setError("");
 
     try {
+      const callbackUrl = getSafeRedirectPath(searchParams.get("callbackUrl"));
+
       const res = await signIn("credentials", {
         email: parsedCredentials.data.email,
         password: parsedCredentials.data.password,
+        callbackUrl,
         redirect: false,
       });
 
@@ -39,7 +52,7 @@ export default function LoginPage() {
         setError("Invalid email or password");
       } else {
         toast.success("Signed in successfully.");
-        router.push("/dashboard");
+        router.push(callbackUrl);
         router.refresh();
       }
     } finally {
