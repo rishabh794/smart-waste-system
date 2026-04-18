@@ -82,11 +82,43 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
   const { routeId, binId } = parsedParams.data;
   const { status } = parsedBody.data;
 
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized: Missing user context' });
+  }
+
   try {
+    const [targetRoute] = await db.select({
+      id: routes.id,
+      driverId: routes.driverId,
+      status: routes.status,
+    })
+    .from(routes)
+    .where(eq(routes.id, routeId))
+    .limit(1);
+
+    if (!targetRoute) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+
+    if (req.user.role === 'driver' && req.user.id !== targetRoute.driverId) {
+      return res.status(403).json({ error: 'Forbidden: Cannot update another driver\'s route' });
+    }
+
+    if (targetRoute.status !== 'pending') {
+      return res.status(400).json({ error: 'Cannot update bin status for a completed route' });
+    }
+
     // Update the specific bin on the specific route
-    await db.update(routeBins)
+    const [updatedBin] = await db.update(routeBins)
       .set({ fillStatus: status })
       .where(and(eq(routeBins.routeId, routeId), eq(routeBins.binId, binId)))
+      .returning({
+        binId: routeBins.binId,
+      });
+
+    if (!updatedBin) {
+      return res.status(404).json({ error: 'Bin is not assigned to this route' });
+    }
 
     return res.status(200).json({ message: `Bin ${binId} marked as ${status}` });
   } catch (error) {
@@ -143,11 +175,40 @@ export const completeRoute = async (req: Request, res: Response): Promise<any> =
 
   const { routeId } = parsedParams.data;
 
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized: Missing user context' });
+  }
+
   try {
+    const [targetRoute] = await db.select({
+      id: routes.id,
+      driverId: routes.driverId,
+      status: routes.status,
+    })
+    .from(routes)
+    .where(eq(routes.id, routeId))
+    .limit(1);
+
+    if (!targetRoute) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+
+    if (req.user.role === 'driver' && req.user.id !== targetRoute.driverId) {
+      return res.status(403).json({ error: 'Forbidden: Cannot complete another driver\'s route' });
+    }
+
+    if (targetRoute.status === 'completed') {
+      return res.status(400).json({ error: 'Route is already completed' });
+    }
+
     // Fetch all bins assigned to this specific route
     const assignedBins = await db.select()
       .from(routeBins)
       .where(eq(routeBins.routeId, routeId));
+
+    if (assignedBins.length === 0) {
+      return res.status(400).json({ error: 'Cannot finish route: No bins are assigned to this route' });
+    }
 
     // Check if any bin has an empty or 'unknown' status
     const hasUnresolvedBins = assignedBins.some(
@@ -162,9 +223,16 @@ export const completeRoute = async (req: Request, res: Response): Promise<any> =
     }
 
     //  If all clear, mark as completed
-    await db.update(routes)
+    const [completedRoute] = await db.update(routes)
       .set({ status: 'completed' })
-      .where(eq(routes.id, routeId));
+      .where(eq(routes.id, routeId))
+      .returning({
+        id: routes.id,
+      });
+
+    if (!completedRoute) {
+      return res.status(500).json({ error: 'Failed to complete route' });
+    }
 
     return res.status(200).json({ message: 'Route marked as completed' });
   } catch (error) {

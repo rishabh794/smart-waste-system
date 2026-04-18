@@ -14,6 +14,7 @@ export const getDrivers = async (req: Request, res: Response) => {
     const drivers = await db.select({
       id: users.id,
       name: users.name,
+      email: users.email,
     })
     .from(users)
     .where(eq(users.role, 'driver'));
@@ -70,6 +71,11 @@ export const getDriverStats = async (req: Request<{ driverId: string }>, res: Re
     }
 
     const { driverId } = parsedParams.data;
+
+    // Drivers may only access their own stats. Admins can access any driver.
+    if (req.user?.role === 'driver' && req.user.id !== driverId) {
+      return res.status(403).json({ error: 'Forbidden: You can only access your own stats' });
+    }
 
     // Calculate Total Routes Completed
     const completedRoutesResult = await db

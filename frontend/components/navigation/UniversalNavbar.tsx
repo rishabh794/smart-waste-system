@@ -17,6 +17,7 @@ const adminLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/status", label: "Status" },
   { href: "/create", label: "Create" },
+  { href: "/admin/driver-stats", label: "Driver Stats" },
 ];
 
 const driverLinks = [
@@ -61,7 +62,9 @@ export default function UniversalNavbar() {
   };
 
   const linkClass = (href: string) => {
-    const isActive = href.startsWith("/#") ? pathname === "/" : pathname === href;
+    const isActive = href.startsWith("/#")
+      ? pathname === "/"
+      : pathname === href || pathname.startsWith(`${href}/`);
     return `relative px-2 py-1 text-sm font-semibold transition-colors after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:origin-left after:scale-x-0 after:bg-[#197443] after:transition-transform ${
       isActive
         ? "text-[#197443] after:scale-x-100"
