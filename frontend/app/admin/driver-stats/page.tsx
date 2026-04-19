@@ -3,6 +3,7 @@
 import Link from "next/link";
 import useSWR from "swr";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import DataLoadingState from "@/components/ui/DataLoadingState";
 import { apiFetch } from "@/lib/apiFetch";
 
 interface DriverCardData {
@@ -40,9 +41,10 @@ export default function AdminDriverStatsDirectoryPage() {
           </div>
 
           {isLoading && (
-            <div className="soft-surface p-6 text-center text-sm font-semibold text-[#315242]">
-              Loading drivers...
-            </div>
+            <DataLoadingState
+              title="Loading drivers"
+              subtitle="Fetching available driver profiles for statistics."
+            />
           )}
 
           {error && (

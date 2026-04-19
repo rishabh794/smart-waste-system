@@ -2,6 +2,7 @@
 
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
+import type { RouteBin } from "@/types/DriverTypes";
 
 // Keep your custom CSS marker logic
 const getMarkerIcon = (status: string, isDepot: boolean = false) => {
@@ -24,18 +25,8 @@ const getMarkerIcon = (status: string, isDepot: boolean = false) => {
   });
 };
 
-interface Bin {
-  binId: string;
-  latitude: number;
-  longitude: number;
-  status: string;
-  zone: string;
-  sequence?: number;
-  optimizedSequence?: number;
-}
-
 interface DriverMapProps {
-  bins: Bin[];
+  bins: RouteBin[];
   routePolyline: [number, number][]; // Array of [lat, lng] for the blue line
   depotCoords: [number, number];
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
-import { 
+import {
   PieChart,
   Pie,
   Cell,
@@ -15,6 +15,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { apiFetch } from '@/lib/apiFetch'; 
+import DataLoadingState from "@/components/ui/DataLoadingState";
 
 interface DriverStatsData {
   totalRoutesCompleted: number;
@@ -194,9 +195,11 @@ export default function DriverStats({ driverId }: { driverId: string }) {
 
   if (isLoading) {
     return (
-      <div className="soft-surface flex h-64 items-center justify-center">
-        <div className="animate-pulse text-sm font-semibold tracking-wide text-[#557064]">Loading your stats...</div>
-      </div>
+      <DataLoadingState
+        title="Loading your statistics"
+        subtitle="Building your latest route, bin health, and velocity insights."
+        className="h-64"
+      />
     );
   }
 

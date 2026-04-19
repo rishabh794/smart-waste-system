@@ -5,6 +5,7 @@ import type { Session } from "next-auth";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import DataLoadingState from "@/components/ui/DataLoadingState";
 
 interface ProtectedRouteProps {
   children: (session: Session) => ReactNode;
@@ -21,7 +22,10 @@ export default function ProtectedRoute({
   redirectUnauthorizedTo = "/dashboard",
   loadingFallback = (
     <div className="site-container py-10">
-      <div className="soft-surface p-6 text-center text-sm font-semibold text-[#315242]">Loading session...</div>
+      <DataLoadingState
+        title="Loading session"
+        subtitle="Verifying access and preparing your workspace."
+      />
     </div>
   ),
 }: ProtectedRouteProps) {

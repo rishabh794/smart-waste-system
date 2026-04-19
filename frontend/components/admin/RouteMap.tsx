@@ -2,14 +2,7 @@
 
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
-
-interface Bin {
-  id: string;
-  latitude: number;
-  longitude: number;
-  zone: string;
-  status: string | null;
-}
+import type { Bin } from "@/types/AdminTypes";
 
 const getMarkerIcon = (status: string | null) => {
   let bgColor = 'bg-gray-500'; // Default UNASSIGNED

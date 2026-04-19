@@ -28,7 +28,11 @@ export default function AdminDriverStatsDetailPage() {
   const params = useParams<{ driverId: string }>();
   const driverId = params?.driverId ?? "";
 
-  const { data: drivers = [] } = useSWR<DriverDirectoryEntry[]>(
+  const {
+    data: drivers = [],
+    error: driversError,
+    isLoading: isDriversLoading,
+  } = useSWR<DriverDirectoryEntry[]>(
     "/api/users/drivers",
     fetchDrivers
   );
@@ -46,7 +50,11 @@ export default function AdminDriverStatsDetailPage() {
             <p className="section-eyebrow">Driver Insights</p>
             <h1 className="mt-2 text-3xl font-extrabold text-[#1b2a22]">Driver Performance</h1>
             <p className="mt-2 max-w-2xl text-sm text-[#607267]">
-              {selectedDriver ? `${selectedDriver.name} - ${selectedDriver.email}` : "Viewing selected driver statistics."}
+              {isDriversLoading
+                ? "Loading driver profile..."
+                : selectedDriver
+                  ? `${selectedDriver.name} - ${selectedDriver.email}`
+                  : "Viewing selected driver statistics."}
             </p>
             <div className="mt-4">
               <Link href="/admin/driver-stats" className="btn-secondary">
@@ -54,6 +62,12 @@ export default function AdminDriverStatsDetailPage() {
               </Link>
             </div>
           </div>
+
+          {driversError && (
+            <div className="mb-6 rounded-xl border border-[#f1caca] bg-[#fff4f3] p-4 text-sm font-semibold text-[#8d2e2b]">
+              Unable to load driver profile details right now.
+            </div>
+          )}
 
           {driverId ? (
             <DriverStats driverId={driverId} />
