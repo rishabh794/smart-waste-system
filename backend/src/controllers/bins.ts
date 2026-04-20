@@ -11,6 +11,10 @@ export const getAllBins = async (req: Request, res: Response) => {
       latitude: bins.latitude,
       longitude: bins.longitude,
       zone: bins.zone,
+      fillLevel: bins.fillLevel,
+      fillRatePerDay: bins.fillRatePerDay,
+      conditionStatus: bins.status,
+      lastEmptiedAt: bins.lastEmptiedAt,
       status: routeBins.fillStatus,
       routeStatus: routes.status // We need to know if the route is active!
     })

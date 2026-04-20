@@ -29,6 +29,63 @@ interface AdminDashboardContentProps {
   onCreateRoute: () => void;
 }
 
+const getRouteStatusMeta = (status: Bin["status"]) => {
+  if (status === "collected") {
+    return {
+      label: "COLLECTED",
+      classes: "bg-green-100 text-green-700",
+    };
+  }
+
+  if (status === "overflowing") {
+    return {
+      label: "OVERFLOWING",
+      classes: "bg-red-100 text-red-700",
+    };
+  }
+
+  if (status === "missed") {
+    return {
+      label: "MISSED",
+      classes: "bg-orange-100 text-orange-700",
+    };
+  }
+
+  if (status === "ASSIGNED_TODAY") {
+    return {
+      label: "ON ROUTE",
+      classes: "bg-yellow-100 text-yellow-700",
+    };
+  }
+
+  if (status === "unknown") {
+    return {
+      label: "UNKNOWN",
+      classes: "bg-gray-100 text-gray-600",
+    };
+  }
+
+  return {
+    label: "UNASSIGNED",
+    classes: "bg-gray-100 text-gray-600",
+  };
+};
+
+const normalizeConditionStatus = (conditionStatus: Bin["conditionStatus"]) => {
+  return conditionStatus ?? "active";
+};
+
+const formatLastEmptiedAt = (value: Bin["lastEmptiedAt"]) => {
+  if (!value) return "Never";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Unknown";
+  }
+
+  return parsed.toLocaleString();
+};
+
 export default function AdminDashboardContent({
   bins,
   drivers,
@@ -43,6 +100,32 @@ export default function AdminDashboardContent({
   onSelectDriver,
   onCreateRoute,
 }: AdminDashboardContentProps) {
+  const binSections: Array<{
+    key: "active" | "maintenance" | "retired";
+    title: string;
+    emptyMessage: string;
+    bins: Bin[];
+  }> = [
+    {
+      key: "active",
+      title: "Active Bins",
+      emptyMessage: "No active bins available.",
+      bins: bins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "active"),
+    },
+    {
+      key: "maintenance",
+      title: "Maintenance Bins",
+      emptyMessage: "No maintenance bins right now.",
+      bins: bins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "maintenance"),
+    },
+    {
+      key: "retired",
+      title: "Retired Bins",
+      emptyMessage: "No retired bins right now.",
+      bins: bins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "retired"),
+    },
+  ];
+
   return (
     <>
       <section className="overflow-hidden rounded-2xl border border-[#e4ece6] bg-[#f8fcf9]">
@@ -58,51 +141,67 @@ export default function AdminDashboardContent({
       <section className="grid gap-8 lg:grid-cols-[1.3fr_0.9fr]">
         <div>
           <h2 className="mb-4 text-2xl font-extrabold text-[#1d3026]">Admin Control Center</h2>
-          <div className="overflow-hidden rounded-2xl border border-[#e4ece6] bg-[#fcfffd]">
-            <div className="grid grid-cols-[1fr_auto] border-b border-[#e6efe9] bg-[#f8fcf9] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#527065]">
-              <span>Bin And Zone</span>
-              <span>Status</span>
-            </div>
-            <ul className="divide-y divide-[#edf2ee]">
-              {bins.length === 0 ? (
-                <li className="px-4 py-4 text-sm italic text-[#5c7165]">
-                  No bins available yet. Register bins from the Create page.
-                </li>
-              ) : (
-                bins.map((bin) => (
-                  <li
-                    key={bin.id}
-                    className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 text-sm odd:bg-[#fcfffd] even:bg-[#f6fbf8]"
-                  >
-                    <div>
-                      <input
-                        type="checkbox"
-                        className="mr-3 accent-[#1a7b3a]"
-                        checked={selectedBins.includes(bin.id)}
-                        onChange={() => onToggleBinSelection(bin.id)}
-                        disabled={bin.status === "ASSIGNED_TODAY"}
-                      />
-                      <span className="font-semibold text-[#244734]">
-                        Bin #{bin.id.substring(0, 6)} | Zone: {bin.zone}
-                      </span>
-                    </div>
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-extrabold uppercase ${
-                        bin.status === "collected"
-                          ? "bg-green-100 text-green-700"
-                          : bin.status === "overflowing"
-                            ? "bg-red-100 text-red-700"
-                            : bin.status === "ASSIGNED_TODAY"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {bin.status === "ASSIGNED_TODAY" ? "ON ROUTE" : bin.status || "UNASSIGNED"}
-                    </span>
-                  </li>
-                ))
-              )}
-            </ul>
+          <div className="space-y-3">
+            {bins.length === 0 ? (
+              <div className="overflow-hidden rounded-2xl border border-[#e4ece6] bg-[#fcfffd] px-4 py-4 text-sm italic text-[#5c7165]">
+                No bins available yet. Register bins from the Create page.
+              </div>
+            ) : (
+              binSections.map((section) => (
+                <details key={section.key} open className="overflow-hidden rounded-2xl border border-[#e4ece6] bg-[#fcfffd]">
+                  <summary className="flex cursor-pointer items-center justify-between border-b border-[#e6efe9] bg-[#f8fcf9] px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-[#527065]">
+                    <span>{section.title}</span>
+                    <span className="soft-pill">{section.bins.length}</span>
+                  </summary>
+
+                  <ul className="divide-y divide-[#edf2ee]">
+                    {section.bins.length === 0 ? (
+                      <li className="px-4 py-4 text-sm italic text-[#5c7165]">{section.emptyMessage}</li>
+                    ) : (
+                      section.bins.map((bin) => {
+                        const routeMeta = getRouteStatusMeta(bin.status);
+                        const isActiveSection = section.key === "active";
+                        const isAssignable = isActiveSection && bin.status !== "ASSIGNED_TODAY";
+
+                        return (
+                          <li
+                            key={bin.id}
+                            className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 text-sm odd:bg-[#fcfffd] even:bg-[#f6fbf8]"
+                          >
+                            <div>
+                              {isActiveSection ? (
+                                <input
+                                  type="checkbox"
+                                  className="mr-3 accent-[#1a7b3a]"
+                                  checked={selectedBins.includes(bin.id)}
+                                  onChange={() => onToggleBinSelection(bin.id)}
+                                  disabled={!isAssignable}
+                                />
+                              ) : (
+                                <span className="mr-3 inline-flex rounded-full border border-[#d8dfdb] bg-[#f2f6f3] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6b7c72]">
+                                  Locked
+                                </span>
+                              )}
+
+                              <span className="font-semibold text-[#244734]">
+                                Bin #{bin.id.substring(0, 6)} | Zone: {bin.zone ?? "Unassigned"}
+                              </span>
+                              <p className="mt-1 text-xs text-[#5a7062]">
+                                Fill: {bin.fillLevel ?? 0}% | Rate: {bin.fillRatePerDay ?? 0}%/day | Last emptied: {formatLastEmptiedAt(bin.lastEmptiedAt)}
+                              </p>
+                            </div>
+
+                            <span className={`rounded-full px-2 py-1 text-xs font-extrabold uppercase ${routeMeta.classes}`}>
+                              {routeMeta.label}
+                            </span>
+                          </li>
+                        );
+                      })
+                    )}
+                  </ul>
+                </details>
+              ))
+            )}
           </div>
         </div>
 

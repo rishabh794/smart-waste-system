@@ -17,6 +17,7 @@ const getMarkerIcon = (status: string, isDepot: boolean = false) => {
   let bgColor = 'bg-yellow-500'; // Pending
   if (status === 'collected') bgColor = 'bg-green-500';
   if (status === 'overflowing') bgColor = 'bg-red-500 animate-pulse';
+  if (status === 'missed') bgColor = 'bg-orange-500';
 
   return L.divIcon({
     className: 'custom-leaflet-icon',

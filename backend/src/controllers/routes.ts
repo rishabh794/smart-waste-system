@@ -80,7 +80,7 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
   }
 
   const { routeId, binId } = parsedParams.data;
-  const { status } = parsedBody.data;
+  const { status, missedReasonCode, missedNote } = parsedBody.data;
 
   if (!req.user) {
     return res.status(401).json({ error: 'Unauthorized: Missing user context' });
@@ -108,20 +108,42 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
       return res.status(400).json({ error: 'Cannot update bin status for a completed route' });
     }
 
-    // Update the specific bin on the specific route
-    const [updatedBin] = await db.update(routeBins)
-      .set({ fillStatus: status })
-      .where(and(eq(routeBins.routeId, routeId), eq(routeBins.binId, binId)))
-      .returning({
-        binId: routeBins.binId,
-      });
+    const normalizedMissedReasonCode = status === 'missed' ? missedReasonCode ?? null : null;
+    const normalizedMissedNote = status === 'missed' ? missedNote ?? null : null;
 
-    if (!updatedBin) {
-      return res.status(404).json({ error: 'Bin is not assigned to this route' });
-    }
+    await db.transaction(async (tx) => {
+      const [updatedBin] = await tx.update(routeBins)
+        .set({
+          fillStatus: status,
+          missedReason: normalizedMissedReasonCode,
+          missedNote: normalizedMissedNote,
+        })
+        .where(and(eq(routeBins.routeId, routeId), eq(routeBins.binId, binId)))
+        .returning({
+          binId: routeBins.binId,
+        });
+
+      if (!updatedBin) {
+        throw new Error('BIN_NOT_ASSIGNED_TO_ROUTE');
+      }
+
+      // Keep physical bin telemetry in sync only when the bin is actually emptied.
+      if (status === 'collected') {
+        await tx.update(bins)
+          .set({
+            fillLevel: 0,
+            lastEmptiedAt: new Date(),
+          })
+          .where(eq(bins.id, binId));
+      }
+    });
 
     return res.status(200).json({ message: `Bin ${binId} marked as ${status}` });
   } catch (error) {
+    if (error instanceof Error && error.message === 'BIN_NOT_ASSIGNED_TO_ROUTE') {
+      return res.status(404).json({ error: 'Bin is not assigned to this route' });
+    }
+
     console.error('Update status error:', error);
     return res.status(500).json({ error: 'Failed to update bin status' });
   }
@@ -137,6 +159,21 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
   const { driverId, binIds } = parsedBody.data;
 
   try {
+    const activeBins = await db
+      .select({ id: bins.id })
+      .from(bins)
+      .where(and(inArray(bins.id, binIds), eq(bins.status, 'active')));
+
+    if (activeBins.length !== binIds.length) {
+      const activeBinSet = new Set(activeBins.map((bin) => bin.id));
+      const unavailableBinIds = binIds.filter((binId) => !activeBinSet.has(binId));
+
+      return res.status(400).json({
+        error: 'Some bins are unavailable for route assignment',
+        unavailableBinIds,
+      });
+    }
+
     // Create the Route
     const [newRoute] = await db.insert(routes).values({
       driverId,
@@ -269,12 +306,14 @@ export const getPendingRoutes = async (req: Request, res: Response): Promise<any
     const dashboardData = activeRoutes.map(route => {
       const binsForThisRoute = activeRouteBins.filter(b => b.routeId === route.routeId);
       const totalBins = binsForThisRoute.length;
-      const collectedBins = binsForThisRoute.filter(b => b.status === 'collected').length;
+      const resolvedBins = binsForThisRoute.filter(
+        b => !!b.status && b.status.toLowerCase() !== 'unknown'
+      ).length;
 
       return {
         ...route,
-        progress: `${collectedBins} / ${totalBins} Collected`,
-        isComplete: collectedBins === totalBins && totalBins > 0
+        progress: `${resolvedBins} / ${totalBins} Resolved`,
+        isComplete: resolvedBins === totalBins && totalBins > 0
       };
     });
 

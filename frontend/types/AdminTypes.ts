@@ -1,5 +1,8 @@
 export type AdminDashboardSection = "dashboard" | "status" | "create";
 
+export type BinConditionStatus = "active" | "maintenance" | "retired";
+export type BinRouteStatus = "unknown" | "collected" | "overflowing" | "missed" | "ASSIGNED_TODAY";
+
 export interface PendingRoute {
   routeId: string;
   driverName: string;
@@ -9,10 +12,15 @@ export interface PendingRoute {
 
 export interface Bin {
   id: string;
-  zone: string;
-  status: string | null;
+  zone: string | null;
+  status: BinRouteStatus | null;
   latitude: number;
   longitude: number;
+  fillLevel?: number | null;
+  fillRatePerDay?: number | null;
+  conditionStatus?: BinConditionStatus | null;
+  lastEmptiedAt?: string | null;
+  routeStatus?: string | null;
 }
 
 export interface Driver {

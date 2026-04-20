@@ -1,6 +1,10 @@
-import { db } from './db.js';
-import { users, bins, routes, routeBins } from './schema/index.js';
 import bcrypt from 'bcrypt';
+import { db } from './db.js';
+import { bins, routeBins, routes, users } from './schema/index.js';
+
+const ADMIN_EMAIL = 'admin@waste.com';
+const ADMIN_PASSWORD = 'admin123';
+const DRIVER_PASSWORD = 'password123';
 
 const dateDaysAgo = (daysAgo: number) => {
   const date = new Date();
@@ -8,24 +12,39 @@ const dateDaysAgo = (daysAgo: number) => {
   return date.toISOString().slice(0, 10);
 };
 
+const hoursAgo = (hours: number) => new Date(Date.now() - (hours * 60 * 60 * 1000));
+
+const binSeedData = [
+  { latitude: 30.3400, longitude: 78.0600, zone: 'Rajpur Road', fillLevel: 78, fillRatePerDay: 28, status: 'active', lastEmptiedAt: hoursAgo(42) },
+  { latitude: 30.3350, longitude: 78.0550, zone: 'Rajpur Road', fillLevel: 85, fillRatePerDay: 35, status: 'active', lastEmptiedAt: hoursAgo(30) },
+  { latitude: 30.3500, longitude: 78.0750, zone: 'Pacific Mall Area', fillLevel: 51, fillRatePerDay: 22, status: 'active', lastEmptiedAt: hoursAgo(14) },
+  { latitude: 30.3240, longitude: 78.0400, zone: 'Clock Tower', fillLevel: 62, fillRatePerDay: 26, status: 'active', lastEmptiedAt: hoursAgo(20) },
+  { latitude: 30.3200, longitude: 78.0350, zone: 'Paltan Bazaar', fillLevel: 34, fillRatePerDay: 18, status: 'active', lastEmptiedAt: hoursAgo(9) },
+  { latitude: 30.2880, longitude: 77.9980, zone: 'ISBT', fillLevel: 88, fillRatePerDay: 40, status: 'active', lastEmptiedAt: hoursAgo(55) },
+  { latitude: 30.2680, longitude: 78.0050, zone: 'Clement Town', fillLevel: 44, fillRatePerDay: 16, status: 'active', lastEmptiedAt: hoursAgo(16) },
+  { latitude: 30.2750, longitude: 78.0100, zone: 'Subhash Nagar', fillLevel: 70, fillRatePerDay: 25, status: 'active', lastEmptiedAt: hoursAgo(26) },
+  { latitude: 30.3350, longitude: 77.9640, zone: 'Prem Nagar', fillLevel: 40, fillRatePerDay: 14, status: 'active', lastEmptiedAt: hoursAgo(11) },
+  { latitude: 30.3400, longitude: 77.9500, zone: 'Vikasnagar Road', fillLevel: 66, fillRatePerDay: 24, status: 'active', lastEmptiedAt: hoursAgo(24) },
+] as const;
+
 async function seed() {
-  console.log('Wiping database clean...');
+  console.log('Resetting database tables...');
 
   try {
     await db.delete(routeBins);
     await db.delete(routes);
     await db.delete(bins);
     await db.delete(users);
-    console.log('Database wiped successfully.');
 
-    console.log('Seeding users...');
-    const driverPasswordHash = await bcrypt.hash('password123', 10);
-    const adminPasswordHash = await bcrypt.hash('admin123', 10);
-    
+    const [adminPasswordHash, driverPasswordHash] = await Promise.all([
+      bcrypt.hash(ADMIN_PASSWORD, 10),
+      bcrypt.hash(DRIVER_PASSWORD, 10),
+    ]);
+
     const seededUsers = await db
       .insert(users)
       .values([
-        { name: 'System Admin', email: 'admin@waste.com', passwordHash: adminPasswordHash, role: 'admin' },
+        { name: 'System Admin', email: ADMIN_EMAIL, passwordHash: adminPasswordHash, role: 'admin' },
         { name: 'Amit Singh', email: 'amit@waste.com', passwordHash: driverPasswordHash, role: 'driver' },
         { name: 'Rahul Sharma', email: 'rahul@waste.com', passwordHash: driverPasswordHash, role: 'driver' },
         { name: 'Priya Patel', email: 'priya@waste.com', passwordHash: driverPasswordHash, role: 'driver' },
@@ -37,8 +56,10 @@ async function seed() {
         role: users.role,
       });
 
+    const usersByEmail = new Map(seededUsers.map((seededUser) => [seededUser.email, seededUser]));
+
     const getUserByEmail = (email: string) => {
-      const user = seededUsers.find((seededUser) => seededUser.email === email);
+      const user = usersByEmail.get(email);
       if (!user) {
         throw new Error(`Expected seeded user not found: ${email}`);
       }
@@ -48,41 +69,21 @@ async function seed() {
     const amit = getUserByEmail('amit@waste.com');
     const rahul = getUserByEmail('rahul@waste.com');
 
-    console.log('Seeding bins across Dehradun...');
     const seededBins = await db
       .insert(bins)
-      .values([
-        { latitude: 30.3400, longitude: 78.0600, zone: 'Rajpur Road' },
-        { latitude: 30.3350, longitude: 78.0550, zone: 'Rajpur Road' },
-        { latitude: 30.3500, longitude: 78.0750, zone: 'Pacific Mall Area' },
-        { latitude: 30.3240, longitude: 78.0400, zone: 'Clock Tower' },
-        { latitude: 30.3200, longitude: 78.0350, zone: 'Paltan Bazaar' },
-        { latitude: 30.2880, longitude: 77.9980, zone: 'ISBT' },
-        { latitude: 30.2680, longitude: 78.0050, zone: 'Clement Town' },
-        { latitude: 30.2750, longitude: 78.0100, zone: 'Subhash Nagar' },
-        { latitude: 30.3350, longitude: 77.9640, zone: 'Prem Nagar' },
-        { latitude: 30.3400, longitude: 77.9500, zone: 'Vikasnagar Road' },
-      ])
+      .values([...binSeedData])
       .returning({ id: bins.id });
 
-    const [
-      bin1,
-      bin2,
-      bin3,
-      bin4,
-      bin5,
-      bin6,
-      bin7,
-      bin8,
-      bin9,
-      bin10,
-    ] = seededBins;
+    if (seededBins.length !== 10) {
+      throw new Error('Expected 10 seeded bins for route assignment setup.');
+    }
+
+    const [bin1, bin2, bin3, bin4, bin5, bin6, bin7, bin8, bin9, bin10] = seededBins;
 
     if (!bin1 || !bin2 || !bin3 || !bin4 || !bin5 || !bin6 || !bin7 || !bin8 || !bin9 || !bin10) {
       throw new Error('Expected 10 seeded bins for route_bin setup.');
     }
 
-    console.log('Seeding routes for My Stats endpoint testing...');
     const seededRoutes = await db
       .insert(routes)
       .values([
@@ -96,6 +97,10 @@ async function seed() {
         id: routes.id,
         assignedDate: routes.assignedDate,
       });
+
+    if (seededRoutes.length !== 5) {
+      throw new Error('Expected 5 seeded routes for dashboard/stats setup.');
+    }
 
     const [amitRouteRecent, amitRouteWeekly, amitRouteOld, amitRoutePending, rahulRoute] = seededRoutes;
 
@@ -115,41 +120,24 @@ async function seed() {
       { routeId: amitRouteOld.id, binId: bin7.id, sequenceNumber: 2, fillStatus: 'collected' },
 
       { routeId: amitRoutePending.id, binId: bin8.id, sequenceNumber: 1, fillStatus: 'unknown' },
-      { routeId: amitRoutePending.id, binId: bin9.id, sequenceNumber: 2, fillStatus: 'unknown' },
+      {
+        routeId: amitRoutePending.id,
+        binId: bin9.id,
+        sequenceNumber: 2,
+        fillStatus: 'missed',
+        missedReason: 'road_blocked',
+        missedNote: 'Waterlogging and barricades blocked truck access.',
+      },
 
       { routeId: rahulRoute.id, binId: bin10.id, sequenceNumber: 1, fillStatus: 'collected' },
       { routeId: rahulRoute.id, binId: bin1.id, sequenceNumber: 2, fillStatus: 'overflowing' },
     ]);
 
-    console.log('Seeding complete.');
-    console.log('');
-    console.log('Driver to test My Stats endpoint:');
-    console.log(`  Name: ${amit.name}`);
-    console.log(`  Email: ${amit.email}`);
-    console.log('  Password: password123');
-    console.log(`  Driver ID: ${amit.id}`);
-    console.log(`  Endpoint: GET /api/users/drivers/${amit.id}/stats`);
-    console.log('');
-    console.log('Expected stats snapshot for this driver:');
-    console.log(
-      JSON.stringify(
-        {
-          totalRoutesCompleted: 3,
-          binHealth: {
-            collected: 5,
-            overflowing: 2,
-            total: 7,
-            overflowRatio: 29,
-          },
-          weeklyVelocity: [
-            { date: amitRouteWeekly.assignedDate, count: 2 },
-            { date: amitRouteRecent.assignedDate, count: 2 },
-          ],
-        },
-        null,
-        2
-      )
-    );
+    console.log('Seed complete.');
+    console.log(`Admin login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
+    console.log('Driver login: amit@waste.com / password123');
+    console.log('Driver login: rahul@waste.com / password123');
+    console.log('Driver login: priya@waste.com / password123');
 
     process.exit(0);
   } catch (error) {
@@ -158,4 +146,4 @@ async function seed() {
   }
 }
 
-seed();
+void seed();

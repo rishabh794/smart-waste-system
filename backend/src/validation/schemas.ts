@@ -30,6 +30,38 @@ const optionalPhoneSchema = z.preprocess(
     .optional()
 );
 
+const missedReasonCodeValues = [
+  'road_blocked',
+  'access_denied',
+  'gate_locked',
+  'vehicle_breakdown',
+  'safety_hazard',
+] as const;
+
+const optionalMissedReasonCodeSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? undefined : trimmed.toLowerCase().replace(/\s+/g, '_');
+  },
+  z.enum(missedReasonCodeValues).optional()
+);
+
+const optionalMissedNoteSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? undefined : trimmed;
+  },
+  z.string().max(255, 'Missed note must be 255 characters or fewer.').optional()
+);
+
 export const loginBodySchema = z.object({
   email: z.string().trim().email('A valid email is required.'),
   password: z.string().min(1, 'Password is required.'),
@@ -69,9 +101,37 @@ export const createRouteBodySchema = z
     path: ['binIds'],
   });
 
-export const updateBinStatusBodySchema = z.object({
-  status: z.enum(['unknown', 'collected', 'overflowing']),
-});
+export const updateBinStatusBodySchema = z
+  .object({
+    status: z.enum(['unknown', 'collected', 'overflowing', 'missed']),
+    missedReasonCode: optionalMissedReasonCodeSchema,
+    missedNote: optionalMissedNoteSchema,
+  })
+  .superRefine((payload, ctx) => {
+    if (payload.status === 'missed' && !payload.missedReasonCode) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Missed reason code is required when status is missed.',
+        path: ['missedReasonCode'],
+      });
+    }
+
+    if (payload.status !== 'missed' && payload.missedReasonCode) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Missed reason code can only be sent when status is missed.',
+        path: ['missedReasonCode'],
+      });
+    }
+
+    if (payload.status !== 'missed' && payload.missedNote) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Missed note can only be sent when status is missed.',
+        path: ['missedNote'],
+      });
+    }
+  });
 
 export const driverIdParamsSchema = z.object({
   driverId: uuidSchema,

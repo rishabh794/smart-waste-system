@@ -1,7 +1,13 @@
 import polyline from "@mapbox/polyline";
 import { apiFetch } from "@/lib/apiFetch";
 import { getApiErrorMessage } from "@/lib/services/apiService";
-import type { OptimizedRouteState, RouteBin, RouteData } from "@/types/DriverTypes";
+import type {
+  DriverBinStatus,
+  MissedReasonCode,
+  OptimizedRouteState,
+  RouteBin,
+  RouteData,
+} from "@/types/DriverTypes";
 
 interface OsrmWaypoint {
   waypoint_index: number;
@@ -114,10 +120,24 @@ export const optimizeRouteGeometry = async (
   };
 };
 
-export const updateDriverBinStatus = (routeId: string, binId: string, status: string) => {
+export const updateDriverBinStatus = (
+  routeId: string,
+  binId: string,
+  status: DriverBinStatus,
+  options?: {
+    missedReasonCode?: MissedReasonCode;
+    missedNote?: string;
+  }
+) => {
+  const payload = {
+    status,
+    ...(options?.missedReasonCode ? { missedReasonCode: options.missedReasonCode } : {}),
+    ...(options?.missedNote ? { missedNote: options.missedNote } : {}),
+  };
+
   return apiFetch(`/api/routes/${routeId}/bins/${binId}/status`, {
     method: "PATCH",
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(payload),
   });
 };
 

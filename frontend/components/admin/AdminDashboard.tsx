@@ -135,7 +135,19 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
         setSelectedBins([]);
         await Promise.all([mutateBins(), mutatePendingRoutes()]);
       } else {
-        toast.error(await getApiErrorMessage(res, "Unable to create route right now."));
+        const errorPayload = await res.json().catch(() => null);
+
+        if (Array.isArray(errorPayload?.unavailableBinIds) && errorPayload.unavailableBinIds.length > 0) {
+          toast.error("Some selected bins are unavailable (maintenance/retired or already on route). Please refresh selections.");
+          setSelectedBins((previousSelection) =>
+            previousSelection.filter((binId) => !errorPayload.unavailableBinIds.includes(binId))
+          );
+          await mutateBins();
+        } else if (typeof errorPayload?.error === "string" && errorPayload.error.trim().length > 0) {
+          toast.error(errorPayload.error);
+        } else {
+          toast.error("Unable to create route right now.");
+        }
       }
     } catch (error) {
       console.error(error);

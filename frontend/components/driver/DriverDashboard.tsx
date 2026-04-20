@@ -23,6 +23,8 @@ import {
 } from "@/lib/services/driverService";
 import type {
   BinStatusUpdate,
+  DriverBinStatus,
+  MissedReasonCode,
   OptimizedRouteState,
   RouteData,
 } from "@/types/DriverTypes";
@@ -113,13 +115,25 @@ export default function DriverDashboard({ userId }: { userId: string }) {
     setIsConfirmingComplete(false);
   }, [displayRoute?.routeId]);
 
-  const updateBinStatus = async (binId: string, newStatus: string) => {
+  const updateBinStatus = async (
+    binId: string,
+    newStatus: DriverBinStatus,
+    options?: {
+      missedReasonCode?: MissedReasonCode;
+      missedNote?: string;
+    }
+  ) => {
     if (!displayRoute?.routeId || binStatusUpdate) return;
 
     const activeRouteId = displayRoute.routeId;
     const previousRouteSnapshot = cachedRoute ?? null;
 
-    setBinStatusUpdate({ binId, status: newStatus });
+    setBinStatusUpdate({
+      binId,
+      status: newStatus,
+      missedReasonCode: options?.missedReasonCode,
+      missedNote: options?.missedNote,
+    });
 
     // SWR optimistic cache update for instant UI feedback.
     await mutateDriverRoute(
@@ -140,7 +154,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
 
     try {
       // API call: persist bin status update.
-      const res = await updateDriverBinStatus(activeRouteId, binId, newStatus);
+      const res = await updateDriverBinStatus(activeRouteId, binId, newStatus, options);
 
       if (!res.ok) {
         await mutateDriverRoute(previousRouteSnapshot, { revalidate: false, populateCache: true });
@@ -231,6 +245,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       <DriverMap bins={displayRoute.bins} routePolyline={routePath} depotCoords={DEPOT_COORDS} />
 
       <DriverRoutePanel
+        key={displayRoute.routeId}
         displayRoute={displayRoute}
         binStatusUpdate={binStatusUpdate}
         isConfirmingComplete={isConfirmingComplete}
