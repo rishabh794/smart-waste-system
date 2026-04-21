@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import dynamic from "next/dynamic";
 import { ChevronIcon } from "@/components/ui/icons";
-import type { Bin, Driver } from "@/types/AdminTypes";
+import type { Bin, BinConditionStatus, Driver } from "@/types/AdminTypes";
 
 const RouteMap = dynamic(() => import("../RouteMap"), {
   ssr: false,
@@ -22,11 +23,13 @@ interface AdminDashboardContentProps {
   selectedDriverName: string;
   isDriverMenuOpen: boolean;
   isCreatingRoute: boolean;
+  updatingBinId: string | null;
   driverMenuRef: RefObject<HTMLDivElement | null>;
   onToggleDriverMenu: () => void;
   onToggleBinSelection: (binId: string) => void;
   onSelectDriver: (driverId: string) => void;
   onCreateRoute: () => void;
+  onUpdateBinConditionStatus: (binId: string, status: BinConditionStatus) => void;
 }
 
 const getRouteStatusMeta = (status: Bin["status"]) => {
@@ -75,6 +78,12 @@ const normalizeConditionStatus = (conditionStatus: Bin["conditionStatus"]) => {
   return conditionStatus ?? "active";
 };
 
+const conditionStatusOptions: Array<{ value: BinConditionStatus; label: string }> = [
+  { value: "active", label: "Set Active" },
+  { value: "maintenance", label: "Set Maintenance" },
+  { value: "retired", label: "Set Retired" },
+];
+
 const formatLastEmptiedAt = (value: Bin["lastEmptiedAt"]) => {
   if (!value) return "Never";
 
@@ -94,12 +103,30 @@ export default function AdminDashboardContent({
   selectedDriverName,
   isDriverMenuOpen,
   isCreatingRoute,
+  updatingBinId,
   driverMenuRef,
   onToggleDriverMenu,
   onToggleBinSelection,
   onSelectDriver,
   onCreateRoute,
+  onUpdateBinConditionStatus,
 }: AdminDashboardContentProps) {
+  const [openConditionMenuBinId, setOpenConditionMenuBinId] = useState<string | null>(null);
+  const conditionMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!conditionMenuRef.current) return;
+      if (conditionMenuRef.current.contains(event.target as Node)) return;
+      setOpenConditionMenuBinId(null);
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, []);
+
   const binSections: Array<{
     key: "active" | "maintenance" | "retired";
     title: string;
@@ -162,6 +189,11 @@ export default function AdminDashboardContent({
                         const routeMeta = getRouteStatusMeta(bin.status);
                         const isActiveSection = section.key === "active";
                         const isAssignable = isActiveSection && bin.status !== "ASSIGNED_TODAY";
+                        const conditionStatus = normalizeConditionStatus(bin.conditionStatus);
+                        const isUpdatingThisBin = updatingBinId === bin.id;
+                        const isConditionMenuOpen = openConditionMenuBinId === bin.id;
+                        const isOnRoute = bin.status === "ASSIGNED_TODAY";
+                        const isConditionChangeLocked = Boolean(updatingBinId) || isOnRoute;
 
                         return (
                           <li
@@ -191,9 +223,61 @@ export default function AdminDashboardContent({
                               </p>
                             </div>
 
-                            <span className={`rounded-full px-2 py-1 text-xs font-extrabold uppercase ${routeMeta.classes}`}>
-                              {routeMeta.label}
-                            </span>
+                            <div className="flex flex-col items-end gap-2">
+                              <span className={`rounded-full px-2 py-1 text-xs font-extrabold uppercase ${routeMeta.classes}`}>
+                                Route: {routeMeta.label}
+                              </span>
+                              <div
+                                ref={isConditionMenuOpen ? conditionMenuRef : null}
+                                className="relative min-w-45"
+                              >
+                                <button
+                                  type="button"
+                                  aria-haspopup="listbox"
+                                  aria-expanded={isConditionMenuOpen}
+                                  disabled={isConditionChangeLocked}
+                                  onClick={() =>
+                                    setOpenConditionMenuBinId((currentState) =>
+                                      currentState === bin.id ? null : bin.id
+                                    )
+                                  }
+                                  className={`dropdown-clean py-2 text-xs ${isConditionMenuOpen ? "dropdown-clean-open" : ""} disabled:cursor-not-allowed disabled:opacity-60`}
+                                >
+                                  <span className="font-semibold text-[#1f3b2d]">
+                                    {isOnRoute ? "Condition Locked (ON ROUTE)" : "Change Condition"}
+                                  </span>
+                                  <ChevronIcon open={isConditionMenuOpen} />
+                                </button>
+
+                                {isConditionMenuOpen && !isConditionChangeLocked && (
+                                  <div
+                                    role="listbox"
+                                    className="absolute right-0 z-40 mt-2 w-full overflow-hidden rounded-xl border border-[#bfd5c5] bg-[#f7fcf8] shadow-lg"
+                                  >
+                                    {conditionStatusOptions.map((option) => (
+                                      <button
+                                        key={option.value}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={conditionStatus === option.value}
+                                        className={`dropdown-option ${conditionStatus === option.value ? "dropdown-option-selected" : ""}`}
+                                        onClick={() => {
+                                          setOpenConditionMenuBinId(null);
+                                          onUpdateBinConditionStatus(bin.id, option.value);
+                                        }}
+                                      >
+                                        {option.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {isUpdatingThisBin && (
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#557064]">
+                                  Saving...
+                                </span>
+                              )}
+                            </div>
                           </li>
                         );
                       })

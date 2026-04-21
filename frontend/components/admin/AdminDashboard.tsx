@@ -24,10 +24,12 @@ import {
   fetchBins,
   fetchDrivers,
   fetchPendingRoutes,
+  updateBinConditionStatus,
 } from "@/lib/services/adminService";
 import type {
   AdminDashboardSection,
   Bin,
+  BinConditionStatus,
   Driver,
   NewBinFormState,
   NewDriverFormState,
@@ -45,10 +47,16 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
   const [isCreatingRoute, setIsCreatingRoute] = useState(false);
   const [isAddingBin, setIsAddingBin] = useState(false);
   const [isAddingDriver, setIsAddingDriver] = useState(false);
+  const [updatingBinId, setUpdatingBinId] = useState<string | null>(null);
   // useRef: keep dropdown root for outside-click detection.
   const driverMenuRef = useRef<HTMLDivElement | null>(null);
 
-  const [newBin, setNewBin] = useState<NewBinFormState>({ latitude: "", longitude: "", zone: "" });
+  const [newBin, setNewBin] = useState<NewBinFormState>({
+    latitude: "",
+    longitude: "",
+    zone: "",
+    status: "active",
+  });
   const [newDriver, setNewDriver] = useState<NewDriverFormState>({ name: "", email: "", password: "" });
 
   const {
@@ -85,6 +93,10 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
 
   const selectedDriverName =
     drivers.find((driver) => driver.id === selectedDriver)?.name ?? "-- Choose a Driver --";
+
+  const normalizeConditionStatus = (conditionStatus: Bin["conditionStatus"]): BinConditionStatus => {
+    return conditionStatus ?? "active";
+  };
 
   // useEffect: close dropdown when user clicks outside the menu.
   useEffect(() => {
@@ -175,7 +187,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       const res = await createBin(parsedPayload.data);
       if (res.ok) {
         toast.success("Bin registered successfully.");
-        setNewBin({ latitude: "", longitude: "", zone: "" });
+        setNewBin({ latitude: "", longitude: "", zone: "", status: "active" });
         await mutateBins();
       } else {
         toast.error(await getApiErrorMessage(res, "Unable to register bin right now."));
@@ -185,6 +197,48 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       toast.error("Network issue while registering bin. Please try again.");
     } finally {
       setIsAddingBin(false);
+    }
+  };
+
+  const handleUpdateBinConditionStatus = async (binId: string, status: BinConditionStatus) => {
+    if (updatingBinId) return;
+
+    const targetBin = bins.find((bin) => bin.id === binId);
+    if (!targetBin) {
+      toast.error("Unable to locate the selected bin.");
+      return;
+    }
+
+    if (normalizeConditionStatus(targetBin.conditionStatus) === status) {
+      return;
+    }
+
+    if (targetBin.status === "ASSIGNED_TODAY") {
+      toast.warning("Bin condition cannot be changed while it is ON ROUTE.");
+      return;
+    }
+
+    setUpdatingBinId(binId);
+
+    try {
+      const res = await updateBinConditionStatus(binId, { status });
+
+      if (res.ok) {
+        toast.success(`Bin status updated to ${status}.`);
+
+        if (status !== "active") {
+          setSelectedBins((currentSelection) => currentSelection.filter((selectedBinId) => selectedBinId !== binId));
+        }
+
+        await mutateBins();
+      } else {
+        toast.error(await getApiErrorMessage(res, "Unable to update bin status right now."));
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Network issue while updating bin status. Please try again.");
+    } finally {
+      setUpdatingBinId(null);
     }
   };
 
@@ -245,11 +299,13 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
               selectedDriverName={selectedDriverName}
               isDriverMenuOpen={isDriverMenuOpen}
               isCreatingRoute={isCreatingRoute}
+              updatingBinId={updatingBinId}
               driverMenuRef={driverMenuRef}
               onToggleDriverMenu={() => setIsDriverMenuOpen((currentState) => !currentState)}
               onToggleBinSelection={toggleBinSelection}
               onSelectDriver={handleDriverSelection}
               onCreateRoute={handleCreateRoute}
+              onUpdateBinConditionStatus={handleUpdateBinConditionStatus}
             />
           )}
         </>
