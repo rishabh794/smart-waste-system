@@ -30,6 +30,9 @@ const optionalPhoneSchema = z.preprocess(
     .optional()
 );
 
+const binConditionStatusValues = ['active', 'maintenance', 'retired'] as const;
+const binConditionStatusSchema = z.enum(binConditionStatusValues);
+
 const missedReasonCodeValues = [
   'road_blocked',
   'access_denied',
@@ -79,6 +82,11 @@ export const createBinBodySchema = z.object({
     .min(-180, 'Longitude must be between -180 and 180.')
     .max(180, 'Longitude must be between -180 and 180.'),
   zone: optionalZoneSchema,
+  status: binConditionStatusSchema.optional().default('active'),
+});
+
+export const updateBinConditionStatusBodySchema = z.object({
+  status: binConditionStatusSchema,
 });
 
 export const createDriverBodySchema = z.object({
@@ -143,6 +151,10 @@ export const routeIdParamsSchema = z.object({
 
 export const routeBinParamsSchema = z.object({
   routeId: uuidSchema,
+  binId: uuidSchema,
+});
+
+export const binIdParamsSchema = z.object({
   binId: uuidSchema,
 });
 

@@ -1,8 +1,13 @@
 import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
 import { bins , routeBins, routes} from '../db/schema/index.js';
-import { eq } from 'drizzle-orm';
-import { createBinBodySchema, getValidationErrorMessage } from '../validation/schemas.js';
+import { and, eq } from 'drizzle-orm';
+import {
+  binIdParamsSchema,
+  createBinBodySchema,
+  getValidationErrorMessage,
+  updateBinConditionStatusBodySchema,
+} from '../validation/schemas.js';
 
 export const getAllBins = async (req: Request, res: Response) => {
   try {
@@ -53,18 +58,72 @@ export const createBin = async (req: Request, res: Response): Promise<any> => {
     return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
   }
 
-  const { latitude, longitude, zone } = parsedBody.data;
+  const { latitude, longitude, zone, status } = parsedBody.data;
 
   try {
     const [newBin] = await db.insert(bins).values({
       latitude,
       longitude,
-      zone: zone || 'Unassigned'
+      zone: zone || 'Unassigned',
+      status,
     }).returning();
 
     return res.status(201).json(newBin);
   } catch (error) {
     console.error('Create bin error:', error);
     return res.status(500).json({ error: 'Failed to create bin' });
+  }
+};
+
+export const updateBinConditionStatus = async (req: Request, res: Response): Promise<any> => {
+  const parsedParams = binIdParamsSchema.safeParse(req.params);
+
+  if (!parsedParams.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedParams.error) });
+  }
+
+  const parsedBody = updateBinConditionStatusBodySchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
+  }
+
+  const { binId } = parsedParams.data;
+  const { status } = parsedBody.data;
+
+  try {
+    const [pendingAssignment] = await db
+      .select({ routeId: routeBins.routeId })
+      .from(routeBins)
+      .innerJoin(routes, eq(routeBins.routeId, routes.id))
+      .where(and(eq(routeBins.binId, binId), eq(routes.status, 'pending')))
+      .limit(1);
+
+    if (pendingAssignment) {
+      return res.status(409).json({
+        error: 'Cannot update bin condition status while bin is ON ROUTE',
+      });
+    }
+
+    const [updatedBin] = await db
+      .update(bins)
+      .set({ status })
+      .where(eq(bins.id, binId))
+      .returning({
+        id: bins.id,
+        status: bins.status,
+      });
+
+    if (!updatedBin) {
+      return res.status(404).json({ error: 'Bin not found' });
+    }
+
+    return res.status(200).json({
+      message: `Bin ${binId} status updated to ${status}`,
+      bin: updatedBin,
+    });
+  } catch (error) {
+    console.error('Update bin condition status error:', error);
+    return res.status(500).json({ error: 'Failed to update bin status' });
   }
 };
