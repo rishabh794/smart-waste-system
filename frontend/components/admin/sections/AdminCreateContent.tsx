@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
-import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
+import { ChevronIcon, EyeIcon, EyeOffIcon } from "@/components/ui/icons";
 import type { NewBinFormState, NewDriverFormState } from "@/types/AdminTypes";
 
 interface AdminCreateContentProps {
@@ -17,6 +18,15 @@ interface AdminCreateContentProps {
   onAddDriver: (event: FormEvent) => Promise<void>;
 }
 
+const binStatusOptions: Array<{
+  value: NewBinFormState["status"];
+  label: string;
+}> = [
+  { value: "active", label: "Active" },
+  { value: "maintenance", label: "Maintenance" },
+  { value: "retired", label: "Retired" },
+];
+
 export default function AdminCreateContent({
   newBin,
   setNewBin,
@@ -29,6 +39,25 @@ export default function AdminCreateContent({
   onAddBin,
   onAddDriver,
 }: AdminCreateContentProps) {
+  const [isBinStatusMenuOpen, setIsBinStatusMenuOpen] = useState(false);
+  const binStatusMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!binStatusMenuRef.current) return;
+      if (binStatusMenuRef.current.contains(event.target as Node)) return;
+      setIsBinStatusMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, []);
+
+  const selectedBinStatusLabel =
+    binStatusOptions.find((option) => option.value === newBin.status)?.label ?? "Active";
+
   return (
     <section className="grid gap-7 lg:grid-cols-[1fr_1fr]">
       <div className="rounded-2xl border border-[#e4ece6] bg-[#f8fcf9] p-6">
@@ -66,6 +95,41 @@ export default function AdminCreateContent({
               setNewBin((currentState) => ({ ...currentState, zone: event.target.value }))
             }
           />
+          <div ref={binStatusMenuRef} className="relative">
+            <button
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={isBinStatusMenuOpen}
+              onClick={() => setIsBinStatusMenuOpen((currentState) => !currentState)}
+              className={`dropdown-clean ${isBinStatusMenuOpen ? "dropdown-clean-open" : ""}`}
+            >
+              <span className="text-[#1f3b2d]">{selectedBinStatusLabel}</span>
+              <ChevronIcon open={isBinStatusMenuOpen} />
+            </button>
+
+            {isBinStatusMenuOpen && (
+              <div
+                role="listbox"
+                className="absolute z-40 mt-2 w-full overflow-hidden rounded-xl border border-[#bfd5c5] bg-[#f7fcf8] shadow-lg"
+              >
+                {binStatusOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="option"
+                    aria-selected={newBin.status === option.value}
+                    className={`dropdown-option ${newBin.status === option.value ? "dropdown-option-selected" : ""}`}
+                    onClick={() => {
+                      setNewBin((currentState) => ({ ...currentState, status: option.value }));
+                      setIsBinStatusMenuOpen(false);
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="submit"
             disabled={isAddingBin}

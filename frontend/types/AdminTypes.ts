@@ -37,6 +37,11 @@ export interface CreateBinPayload {
   latitude: number;
   longitude: number;
   zone: string;
+  status: BinConditionStatus;
+}
+
+export interface UpdateBinConditionStatusPayload {
+  status: BinConditionStatus;
 }
 
 export interface CreateDriverPayload {
@@ -49,6 +54,7 @@ export interface NewBinFormState {
   latitude: string;
   longitude: string;
   zone: string;
+  status: BinConditionStatus;
 }
 
 export interface NewDriverFormState {

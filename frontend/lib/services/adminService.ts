@@ -7,6 +7,7 @@ import type {
   CreateRoutePayload,
   Driver,
   PendingRoute,
+  UpdateBinConditionStatusPayload,
 } from "@/types/AdminTypes";
 
 export const ADMIN_BINS_KEY = "/api/bins";
@@ -29,6 +30,16 @@ export const createRoute = (payload: CreateRoutePayload) => {
 export const createBin = (payload: CreateBinPayload) => {
   return apiFetch("/api/bins", {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+};
+
+export const updateBinConditionStatus = (
+  binId: string,
+  payload: UpdateBinConditionStatusPayload
+) => {
+  return apiFetch(`/api/bins/${binId}/status`, {
+    method: "PATCH",
     body: JSON.stringify(payload),
   });
 };

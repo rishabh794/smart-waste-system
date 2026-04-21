@@ -30,6 +30,7 @@ export const createBinFormSchema = z.object({
     .trim()
     .min(1, 'Zone is required.')
     .max(100, 'Zone must be 100 characters or less.'),
+  status: z.enum(['active', 'maintenance', 'retired']),
 });
 
 export const createDriverFormSchema = z.object({
