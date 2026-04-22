@@ -39,6 +39,7 @@ interface DriverRoutePanelProps {
     binId: string,
     status: DriverBinStatus,
     options?: {
+      wasOverflowing?: boolean;
       missedReasonCode?: MissedReasonCode;
       missedNote?: string;
     }
@@ -136,6 +137,8 @@ export default function DriverRoutePanel({
             {displayRoute.bins.map((bin) => {
               const skipStopDraft = skipStopDrafts[bin.binId] ?? createDefaultSkipStopDraft();
               const isSkipStopFormOpen = activeSkipStopBinId === bin.binId;
+              const isCollectedWithOverflowObserved = bin.status === "collected" && Boolean(bin.wasOverflowing);
+              const stopNumber = bin.optimizedSequence ?? bin.sequence;
               const selectedSkipReasonLabel =
                 MISSED_REASON_OPTIONS.find((option) => option.value === skipStopDraft.missedReasonCode)?.label ??
                 MISSED_REASON_OPTIONS[0]?.label ??
@@ -145,26 +148,26 @@ export default function DriverRoutePanel({
                 <li key={bin.binId} className="flex flex-col px-4 py-4 odd:bg-[#fcfffd] even:bg-[#f6fbf8]">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-semibold text-[#244734]">
-                    Stop {bin.sequence}: Bin #{bin.binId.substring(0, 5)} ({bin.zone})
+                    Stop {stopNumber}: Bin #{bin.binId.substring(0, 5)} ({bin.zone})
                   </span>
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-extrabold uppercase ${
-                      bin.status === "collected"
+                      isCollectedWithOverflowObserved
+                        ? "bg-red-100 text-red-700"
+                        : bin.status === "collected"
                         ? "bg-green-100 text-green-700"
-                        : bin.status === "overflowing"
-                          ? "bg-red-100 text-red-700"
-                          : bin.status === "missed"
-                            ? "bg-orange-100 text-orange-700"
-                          : "bg-gray-100 text-gray-600"
+                        : bin.status === "missed"
+                          ? "bg-orange-100 text-orange-700"
+                        : "bg-gray-100 text-gray-600"
                     }`}
                   >
-                    {bin.status}
+                    {isCollectedWithOverflowObserved ? "collected (overflow observed)" : bin.status}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <button
-                    onClick={() => onUpdateBinStatus(bin.binId, "collected")}
+                    onClick={() => onUpdateBinStatus(bin.binId, "collected", { wasOverflowing: false })}
                     disabled={Boolean(binStatusUpdate)}
                     className="rounded-md border border-[#cfdacb] bg-[#eef5ea] px-3 py-2 text-sm font-bold text-[#17311f] transition hover:border-[#1a7b3a] hover:bg-[#dff0d8] disabled:cursor-not-allowed disabled:opacity-70"
                   >
@@ -173,13 +176,13 @@ export default function DriverRoutePanel({
                       : "Collected"}
                   </button>
                   <button
-                    onClick={() => onUpdateBinStatus(bin.binId, "overflowing")}
+                    onClick={() => onUpdateBinStatus(bin.binId, "collected", { wasOverflowing: true })}
                     disabled={Boolean(binStatusUpdate)}
                     className="rounded-md border border-[#e8c4c4] bg-[#fff5f5] px-3 py-2 text-sm font-bold text-[#7d2222] transition hover:bg-[#ffe8e8] disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {binStatusUpdate?.binId === bin.binId && binStatusUpdate.status === "overflowing"
+                    {binStatusUpdate?.binId === bin.binId && binStatusUpdate.status === "collected" && binStatusUpdate.wasOverflowing
                       ? "Updating..."
-                      : "Overflowing"}
+                      : "Collected + Overflowing"}
                   </button>
                   <button
                     onClick={() => handleOpenSkipStopForm(bin.binId)}

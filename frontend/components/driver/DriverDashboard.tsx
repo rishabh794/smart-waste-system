@@ -119,6 +119,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
     binId: string,
     newStatus: DriverBinStatus,
     options?: {
+      wasOverflowing?: boolean;
       missedReasonCode?: MissedReasonCode;
       missedNote?: string;
     }
@@ -131,6 +132,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
     setBinStatusUpdate({
       binId,
       status: newStatus,
+      wasOverflowing: options?.wasOverflowing,
       missedReasonCode: options?.missedReasonCode,
       missedNote: options?.missedNote,
     });
@@ -145,7 +147,13 @@ export default function DriverDashboard({ userId }: { userId: string }) {
         return {
           ...currentRoute,
           bins: currentRoute.bins.map((bin) =>
-            bin.binId === binId ? { ...bin, status: newStatus } : bin
+            bin.binId === binId
+              ? {
+                  ...bin,
+                  status: newStatus,
+                  wasOverflowing: newStatus === "collected" ? Boolean(options?.wasOverflowing) : false,
+                }
+              : bin
           ),
         };
       },

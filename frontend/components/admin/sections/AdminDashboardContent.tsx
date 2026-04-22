@@ -32,18 +32,20 @@ interface AdminDashboardContentProps {
   onUpdateBinConditionStatus: (binId: string, status: BinConditionStatus) => void;
 }
 
-const getRouteStatusMeta = (status: Bin["status"]) => {
+const getRouteStatusMeta = (bin: Bin) => {
+  if (bin.status === "collected" && Boolean(bin.wasOverflowing)) {
+    return {
+      label: "COLLECTED (OVERFLOW)",
+      classes: "bg-red-100 text-red-700",
+    };
+  }
+
+  const status = bin.status;
+
   if (status === "collected") {
     return {
       label: "COLLECTED",
       classes: "bg-green-100 text-green-700",
-    };
-  }
-
-  if (status === "overflowing") {
-    return {
-      label: "OVERFLOWING",
-      classes: "bg-red-100 text-red-700",
     };
   }
 
@@ -186,7 +188,7 @@ export default function AdminDashboardContent({
                       <li className="px-4 py-4 text-sm italic text-[#5c7165]">{section.emptyMessage}</li>
                     ) : (
                       section.bins.map((bin) => {
-                        const routeMeta = getRouteStatusMeta(bin.status);
+                        const routeMeta = getRouteStatusMeta(bin);
                         const isActiveSection = section.key === "active";
                         const isAssignable = isActiveSection && bin.status !== "ASSIGNED_TODAY";
                         const conditionStatus = normalizeConditionStatus(bin.conditionStatus);

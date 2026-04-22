@@ -1,7 +1,7 @@
 export type AdminDashboardSection = "dashboard" | "status" | "create";
 
 export type BinConditionStatus = "active" | "maintenance" | "retired";
-export type BinRouteStatus = "unknown" | "collected" | "overflowing" | "missed" | "ASSIGNED_TODAY";
+export type BinRouteStatus = "unknown" | "collected" | "missed" | "ASSIGNED_TODAY";
 
 export interface PendingRoute {
   routeId: string;
@@ -14,6 +14,7 @@ export interface Bin {
   id: string;
   zone: string | null;
   status: BinRouteStatus | null;
+  wasOverflowing?: boolean | null;
   latitude: number;
   longitude: number;
   fillLevel?: number | null;

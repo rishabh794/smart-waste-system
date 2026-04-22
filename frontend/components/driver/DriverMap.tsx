@@ -5,7 +5,7 @@ import L from "leaflet";
 import type { RouteBin } from "@/types/DriverTypes";
 
 // Keep your custom CSS marker logic
-const getMarkerIcon = (status: string, isDepot: boolean = false) => {
+const getMarkerIcon = (status: string, isDepot: boolean = false, wasOverflowing: boolean = false) => {
   if (isDepot) {
     return L.divIcon({
       className: 'custom-leaflet-icon',
@@ -16,7 +16,7 @@ const getMarkerIcon = (status: string, isDepot: boolean = false) => {
 
   let bgColor = 'bg-yellow-500'; // Pending
   if (status === 'collected') bgColor = 'bg-green-500';
-  if (status === 'overflowing') bgColor = 'bg-red-500 animate-pulse';
+  if (status === 'collected' && wasOverflowing) bgColor = 'bg-red-500 animate-pulse';
   if (status === 'missed') bgColor = 'bg-orange-500';
 
   return L.divIcon({
@@ -33,6 +33,14 @@ interface DriverMapProps {
 }
 
 export default function DriverMap({ bins, routePolyline, depotCoords }: DriverMapProps) {
+  const formatBinStatusLabel = (bin: RouteBin) => {
+    if (bin.status === 'collected' && bin.wasOverflowing) {
+      return 'collected (overflow observed)';
+    }
+
+    return bin.status;
+  };
+
   return (
     <div className="relative z-0 mb-4 h-100 w-full overflow-hidden rounded-xl border border-[#dce7df] bg-[#f7fcf8]">
       <MapContainer 
@@ -59,13 +67,18 @@ export default function DriverMap({ bins, routePolyline, depotCoords }: DriverMa
         {/* The Bin Markers */}
         {bins.map((bin) => {
           if (!bin.latitude || !bin.longitude) return null;
+          const stopNumber = bin.optimizedSequence ?? bin.sequence;
           return (
-            <Marker key={bin.binId} position={[bin.latitude, bin.longitude]} icon={getMarkerIcon(bin.status)}>
+            <Marker
+              key={bin.binId}
+              position={[bin.latitude, bin.longitude]}
+              icon={getMarkerIcon(bin.status, false, Boolean(bin.wasOverflowing))}
+            >
               <Popup>
                 <div className="text-black">
-                  <strong>Stop {bin.optimizedSequence || bin.sequence}: Bin #{bin.binId.substring(0,5)}</strong><br/>
+                  <strong>Stop {stopNumber}: Bin #{bin.binId.substring(0,5)}</strong><br/>
                   Zone: {bin.zone}<br/>
-                  Status: {bin.status}
+                  Status: {formatBinStatusLabel(bin)}
                 </div>
               </Popup>
             </Marker>

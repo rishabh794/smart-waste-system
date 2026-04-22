@@ -125,12 +125,14 @@ export const updateDriverBinStatus = (
   binId: string,
   status: DriverBinStatus,
   options?: {
+    wasOverflowing?: boolean;
     missedReasonCode?: MissedReasonCode;
     missedNote?: string;
   }
 ) => {
   const payload = {
     status,
+    ...(typeof options?.wasOverflowing === 'boolean' ? { wasOverflowing: options.wasOverflowing } : {}),
     ...(options?.missedReasonCode ? { missedReasonCode: options.missedReasonCode } : {}),
     ...(options?.missedNote ? { missedNote: options.missedNote } : {}),
   };

@@ -12,7 +12,7 @@ const getMarkerIcon = (bin: Bin) => {
   if (bin.conditionStatus === 'maintenance') bgColor = 'bg-orange-500';
   if (bin.status === 'collected') bgColor = 'bg-green-500';
   if (bin.status === 'ASSIGNED_TODAY') bgColor = 'bg-yellow-500';
-  if (bin.status === 'overflowing' || (typeof bin.fillLevel === 'number' && bin.fillLevel >= 80)) {
+  if ((bin.status === 'collected' && Boolean(bin.wasOverflowing)) || (typeof bin.fillLevel === 'number' && bin.fillLevel >= 80)) {
     bgColor = 'bg-red-500';
     pulse = 'animate-pulse'; 
   }
@@ -35,10 +35,14 @@ export default function RouteMap({ bins }: { bins: Bin[] }) {
   // Center on Dehradun
   const centerPosition: [number, number] = [30.316, 78.032]; 
 
-  const formatRouteStatus = (status: Bin['status']) => {
-    if (status === 'ASSIGNED_TODAY') return 'ON ROUTE';
-    if (!status) return 'UNASSIGNED';
-    return status.toUpperCase();
+  const formatRouteStatus = (bin: Bin) => {
+    if (bin.status === 'ASSIGNED_TODAY') return 'ON ROUTE';
+    if (!bin.status) return 'UNASSIGNED';
+    if (bin.status === 'collected' && Boolean(bin.wasOverflowing)) {
+      return 'COLLECTED (OVERFLOW OBSERVED)';
+    }
+
+    return bin.status.toUpperCase();
   };
 
   const formatConditionStatus = (conditionStatus: Bin['conditionStatus']) => {
@@ -87,12 +91,12 @@ export default function RouteMap({ bins }: { bins: Bin[] }) {
                   <div>
                     <strong>Route:</strong> 
                     <span className={`ml-1 font-bold uppercase ${
+                      bin.status === 'collected' && bin.wasOverflowing ? 'text-red-600' :
                       bin.status === 'collected' ? 'text-green-600' : 
-                      bin.status === 'overflowing' ? 'text-red-600' : 
                       bin.status === 'missed' ? 'text-orange-600' : 
                       bin.status === 'ASSIGNED_TODAY' ? 'text-yellow-600' : 'text-gray-500'
                     }`}>
-                      {formatRouteStatus(bin.status)}
+                      {formatRouteStatus(bin)}
                     </span>
                   </div>
                   <div><strong>Condition:</strong> {formatConditionStatus(bin.conditionStatus)}</div>

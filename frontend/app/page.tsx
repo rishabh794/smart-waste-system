@@ -158,7 +158,7 @@ export default function Home() {
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.15em] text-[#197443]">Step 02</p>
                 <h3 className="mt-1 text-lg font-extrabold text-[#1d3025]">Driver Executes Collection</h3>
-                <p className="mt-1 text-sm text-[#5e7066]">Stops are updated as collected or overflowing in the field app.</p>
+                <p className="mt-1 text-sm text-[#5e7066]">Stops are updated as collected or missed, with overflow observed as a separate field signal.</p>
               </div>
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.15em] text-[#197443]">Step 03</p>
@@ -202,7 +202,7 @@ export default function Home() {
 
             <div className="order-1 lg:order-2">
               <p className="section-eyebrow">Infrastructure & Impact</p>
-              <h2 className="section-title mt-3">Built To Scale With Your City's Growth</h2>
+              <h2 className="section-title mt-3">Built To Scale With Your City&apos;s Growth</h2>
               <p className="section-subtitle max-w-lg">
                 From collection points to processing facilities, waste management is a system. Our
                 platform orchestrates thousands of daily collection cycles across multiple zones,

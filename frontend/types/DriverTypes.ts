@@ -1,4 +1,4 @@
-export type DriverBinStatus = "unknown" | "collected" | "overflowing" | "missed";
+export type DriverBinStatus = "unknown" | "collected" | "missed";
 export type MissedReasonCode =
   | "road_blocked"
   | "access_denied"
@@ -11,6 +11,7 @@ export interface RouteBin {
   sequence: number;
   zone: string;
   status: DriverBinStatus;
+  wasOverflowing?: boolean;
   latitude: number;
   longitude: number;
   optimizedSequence?: number;
@@ -29,6 +30,7 @@ export interface OptimizedRouteState {
 export interface BinStatusUpdate {
   binId: string;
   status: DriverBinStatus;
+  wasOverflowing?: boolean;
   missedReasonCode?: MissedReasonCode;
   missedNote?: string;
 }
