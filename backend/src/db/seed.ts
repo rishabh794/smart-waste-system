@@ -110,13 +110,25 @@ async function seed() {
 
     await db.insert(routeBins).values([
       { routeId: amitRouteRecent.id, binId: bin1.id, sequenceNumber: 1, fillStatus: 'collected' },
-      { routeId: amitRouteRecent.id, binId: bin2.id, sequenceNumber: 2, fillStatus: 'overflowing' },
+      {
+        routeId: amitRouteRecent.id,
+        binId: bin2.id,
+        sequenceNumber: 2,
+        fillStatus: 'collected',
+        wasOverflowing: true,
+      },
       { routeId: amitRouteRecent.id, binId: bin3.id, sequenceNumber: 3, fillStatus: 'collected' },
 
       { routeId: amitRouteWeekly.id, binId: bin4.id, sequenceNumber: 1, fillStatus: 'collected' },
       { routeId: amitRouteWeekly.id, binId: bin5.id, sequenceNumber: 2, fillStatus: 'collected' },
 
-      { routeId: amitRouteOld.id, binId: bin6.id, sequenceNumber: 1, fillStatus: 'overflowing' },
+      {
+        routeId: amitRouteOld.id,
+        binId: bin6.id,
+        sequenceNumber: 1,
+        fillStatus: 'collected',
+        wasOverflowing: true,
+      },
       { routeId: amitRouteOld.id, binId: bin7.id, sequenceNumber: 2, fillStatus: 'collected' },
 
       { routeId: amitRoutePending.id, binId: bin8.id, sequenceNumber: 1, fillStatus: 'unknown' },
@@ -130,7 +142,13 @@ async function seed() {
       },
 
       { routeId: rahulRoute.id, binId: bin10.id, sequenceNumber: 1, fillStatus: 'collected' },
-      { routeId: rahulRoute.id, binId: bin1.id, sequenceNumber: 2, fillStatus: 'overflowing' },
+      {
+        routeId: rahulRoute.id,
+        binId: bin1.id,
+        sequenceNumber: 2,
+        fillStatus: 'collected',
+        wasOverflowing: true,
+      },
     ]);
 
     console.log('Seed complete.');

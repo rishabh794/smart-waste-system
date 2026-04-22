@@ -21,6 +21,7 @@ export const getAllBins = async (req: Request, res: Response) => {
       conditionStatus: bins.status,
       lastEmptiedAt: bins.lastEmptiedAt,
       status: routeBins.fillStatus,
+      wasOverflowing: routeBins.wasOverflowing,
       routeStatus: routes.status // We need to know if the route is active!
     })
     .from(bins)

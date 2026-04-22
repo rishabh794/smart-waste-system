@@ -53,6 +53,7 @@ export const getDriverTodayRoute = async (req: Request, res: Response): Promise<
       longitude: bins.longitude,
       zone: bins.zone,
       status: routeBins.fillStatus,
+      wasOverflowing: routeBins.wasOverflowing,
       sequence: routeBins.sequenceNumber
     })
     .from(routeBins)
@@ -80,7 +81,7 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
   }
 
   const { routeId, binId } = parsedParams.data;
-  const { status, missedReasonCode, missedNote } = parsedBody.data;
+  const { status, wasOverflowing, missedReasonCode, missedNote } = parsedBody.data;
 
   if (!req.user) {
     return res.status(401).json({ error: 'Unauthorized: Missing user context' });
@@ -110,11 +111,13 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
 
     const normalizedMissedReasonCode = status === 'missed' ? missedReasonCode ?? null : null;
     const normalizedMissedNote = status === 'missed' ? missedNote ?? null : null;
+    const normalizedWasOverflowing = status === 'collected' ? Boolean(wasOverflowing) : false;
 
     await db.transaction(async (tx) => {
       const [updatedBin] = await tx.update(routeBins)
         .set({
           fillStatus: status,
+          wasOverflowing: normalizedWasOverflowing,
           missedReason: normalizedMissedReasonCode,
           missedNote: normalizedMissedNote,
         })
@@ -190,7 +193,8 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
       routeId: newRoute.id,
       binId: binId,
       sequenceNumber: index + 1, 
-      fillStatus: 'unknown'
+      fillStatus: 'unknown',
+      wasOverflowing: false,
     }));
 
     // Insert all bins into the route at once

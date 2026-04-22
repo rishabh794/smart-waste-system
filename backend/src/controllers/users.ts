@@ -88,24 +88,32 @@ export const getDriverStats = async (req: Request<{ driverId: string }>, res: Re
         )
       );
 
-    // Calculate Lifetime Bin Health (Collected vs Overflowing)
-    const binStats = await db
-      .select({
-        fillStatus: routeBins.fillStatus,
-        count: sql<number>`count(*)`
-      })
+    // Calculate lifetime serviced bins and overflow observations.
+    const [collectedResult] = await db
+      .select({ count: sql<number>`count(*)` })
       .from(routeBins)
       .innerJoin(routes, eq(routeBins.routeId, routes.id))
-      .where(eq(routes.driverId, driverId))
-      .groupBy(routeBins.fillStatus);
+      .where(
+        and(
+          eq(routes.driverId, driverId),
+          eq(routeBins.fillStatus, 'collected')
+        )
+      );
 
-    let collected = 0;
-    let overflowing = 0;
-    
-    binStats.forEach(stat => {
-      if (stat.fillStatus === 'collected') collected = Number(stat.count);
-      if (stat.fillStatus === 'overflowing') overflowing = Number(stat.count);
-    });
+    const [overflowObservedResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(routeBins)
+      .innerJoin(routes, eq(routeBins.routeId, routes.id))
+      .where(
+        and(
+          eq(routes.driverId, driverId),
+          eq(routeBins.fillStatus, 'collected'),
+          eq(routeBins.wasOverflowing, true)
+        )
+      );
+
+    const collected = Number(collectedResult?.count) || 0;
+    const overflowing = Number(overflowObservedResult?.count) || 0;
 
     // Return daily collected-bin counts for the recent 8 weeks to support weekly pagination.
     const velocityWindowDays = 56;
@@ -136,9 +144,9 @@ export const getDriverStats = async (req: Request<{ driverId: string }>, res: Re
       binHealth: {
         collected,
         overflowing,
-        total: collected + overflowing,
-        overflowRatio: collected + overflowing > 0 
-            ? Math.round((overflowing / (collected + overflowing)) * 100) 
+        total: collected,
+        overflowRatio: collected > 0 
+            ? Math.round((overflowing / collected) * 100) 
             : 0
       },
       weeklyVelocity

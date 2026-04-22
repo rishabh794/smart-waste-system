@@ -111,7 +111,8 @@ export const createRouteBodySchema = z
 
 export const updateBinStatusBodySchema = z
   .object({
-    status: z.enum(['unknown', 'collected', 'overflowing', 'missed']),
+    status: z.enum(['unknown', 'collected', 'missed']),
+    wasOverflowing: z.boolean().optional(),
     missedReasonCode: optionalMissedReasonCodeSchema,
     missedNote: optionalMissedNoteSchema,
   })
@@ -137,6 +138,14 @@ export const updateBinStatusBodySchema = z
         code: z.ZodIssueCode.custom,
         message: 'Missed note can only be sent when status is missed.',
         path: ['missedNote'],
+      });
+    }
+
+    if (payload.status !== 'collected' && payload.wasOverflowing === true) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Overflow observation can only be sent when status is collected.',
+        path: ['wasOverflowing'],
       });
     }
   });

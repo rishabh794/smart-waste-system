@@ -1,4 +1,4 @@
-import { pgTable,uuid, serial, integer, date, varchar } from 'drizzle-orm/pg-core';
+import { pgTable,uuid, serial, integer, date, varchar, boolean } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 import { bins } from './bins.js';
 
@@ -15,6 +15,7 @@ export const routeBins = pgTable('route_bins', {
   binId: uuid('bin_id').references(() => bins.id).notNull(),
   sequenceNumber: integer('sequence_number').notNull(), 
   fillStatus: varchar('fill_status', { length: 50 }).default('unknown'), 
+  wasOverflowing: boolean('was_overflowing').default(false).notNull(),
   missedReason: varchar('missed_reason', { length: 50 }),
   missedNote: varchar('missed_note', { length: 255 }),
 });
