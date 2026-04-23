@@ -22,6 +22,7 @@ interface DriverStatsData {
   binHealth: {
     collected: number;
     overflowing: number;
+    missed: number;
     total: number;
     overflowRatio: number;
   };
@@ -215,9 +216,10 @@ export default function DriverStats({ driverId }: { driverId: string }) {
   const pieData = [
     { name: 'Collected (No Overflow)', value: collectedWithoutOverflow },
     { name: 'Collected (Overflow Observed)', value: data.binHealth.overflowing },
+    { name: 'Skipped (Missed)', value: data.binHealth.missed },
   ];
   
-  const COLORS = ['#197443', '#c5483e'];
+  const COLORS = ['#197443', '#c5483e', '#d0832f'];
   const hasOlderWeeks = safeWeekOffset < maxWeekOffset;
   const hasNewerWeek = safeWeekOffset > 0;
 
@@ -256,7 +258,7 @@ export default function DriverStats({ driverId }: { driverId: string }) {
         </div>
         
         <div className="soft-surface flex flex-col items-center justify-center rounded-xl border-[#dce9e1] bg-[#fcfffd] p-4 text-center">
-          <span className="text-sm font-semibold text-[#597064]">Bins Serviced</span>
+          <span className="text-sm font-semibold text-[#597064]">Stops Addressed</span>
           <span className="mt-1 text-3xl font-black text-[#197443]">{data.binHealth.total}</span>
           <span className="mt-1 text-xs text-[#7d9187]">Lifetime</span>
         </div>
@@ -270,7 +272,7 @@ export default function DriverStats({ driverId }: { driverId: string }) {
           </div>
           <div className="mt-2 text-3xl font-black text-[#1f412f]">{overflowRatio}%</div>
           <p className="mt-1 text-xs text-[#7d9187]">
-            {data.binHealth.overflowing} overflow observations over {data.binHealth.total} serviced bins
+            {data.binHealth.overflowing} overflow observations over {data.binHealth.collected} collected stops
           </p>
           <div className="mt-3 h-2 w-full rounded-full bg-[#e7efe9]">
             <div
@@ -282,7 +284,7 @@ export default function DriverStats({ driverId }: { driverId: string }) {
       </div>
 
       <div className="soft-surface rounded-xl border-[#dce9e1] bg-[#fcfffd] p-5">
-        <h3 className="mb-4 font-extrabold text-[#1f412f]">Route Health (Collected Outcomes)</h3>
+        <h3 className="mb-4 font-extrabold text-[#1f412f]">Route Health (Addressed Outcomes)</h3>
         <div className="grid gap-4 lg:grid-cols-[290px_1fr] lg:items-center">
           <div className="h-48 w-full min-w-0">
             <ResponsiveContainer width="100%" height={192} minWidth={0}>
@@ -316,6 +318,10 @@ export default function DriverStats({ driverId }: { driverId: string }) {
               <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#8e4d48]">Collected (Overflow Observed)</div>
               <div className="mt-1 text-2xl font-extrabold text-[#8b2d28]">{data.binHealth.overflowing}</div>
             </div>
+            <div className="rounded-xl border border-[#f0dcbb] bg-[#fff8ec] p-3">
+              <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#8a5b24]">Skipped (Missed)</div>
+              <div className="mt-1 text-2xl font-extrabold text-[#8a5b24]">{data.binHealth.missed}</div>
+            </div>
             <p className="text-sm text-[#607267]">
               Overflow ratio is currently <span className="font-extrabold text-[#1f412f]">{overflowRatio}%</span> of collected stops.
             </p>
@@ -329,6 +335,10 @@ export default function DriverStats({ driverId }: { driverId: string }) {
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-[#c5483e]"></div>
             Collected (Overflow Observed) ({data.binHealth.overflowing})
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-[#d0832f]"></div>
+            Skipped (Missed) ({data.binHealth.missed})
           </div>
         </div>
       </div>

@@ -88,7 +88,7 @@ export const getDriverStats = async (req: Request<{ driverId: string }>, res: Re
         )
       );
 
-    // Calculate lifetime serviced bins and overflow observations.
+    // Calculate lifetime addressed stops and overflow observations.
     const [collectedResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(routeBins)
@@ -97,6 +97,17 @@ export const getDriverStats = async (req: Request<{ driverId: string }>, res: Re
         and(
           eq(routes.driverId, driverId),
           eq(routeBins.fillStatus, 'collected')
+        )
+      );
+
+    const [missedResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(routeBins)
+      .innerJoin(routes, eq(routeBins.routeId, routes.id))
+      .where(
+        and(
+          eq(routes.driverId, driverId),
+          eq(routeBins.fillStatus, 'missed')
         )
       );
 
@@ -113,7 +124,9 @@ export const getDriverStats = async (req: Request<{ driverId: string }>, res: Re
       );
 
     const collected = Number(collectedResult?.count) || 0;
+    const missed = Number(missedResult?.count) || 0;
     const overflowing = Number(overflowObservedResult?.count) || 0;
+    const totalAddressed = collected + missed;
 
     // Return daily collected-bin counts for the recent 8 weeks to support weekly pagination.
     const velocityWindowDays = 56;
@@ -144,7 +157,8 @@ export const getDriverStats = async (req: Request<{ driverId: string }>, res: Re
       binHealth: {
         collected,
         overflowing,
-        total: collected,
+        missed,
+        total: totalAddressed,
         overflowRatio: collected > 0 
             ? Math.round((overflowing / collected) * 100) 
             : 0
