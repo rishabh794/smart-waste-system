@@ -18,6 +18,10 @@ const getISTDate = () => {
 };
 
 export const getDriverTodayRoute = async (req: Request, res: Response): Promise<any> => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'driver')) {
+    return res.status(403).json({ error: 'Forbidden: Driver or admin access required' });
+  }
+
   const parsedParams = driverIdParamsSchema.safeParse(req.params);
 
   if (!parsedParams.success) {
@@ -70,6 +74,10 @@ export const getDriverTodayRoute = async (req: Request, res: Response): Promise<
 };
 
 export const updateBinStatus = async (req: Request, res: Response): Promise<any> => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'driver')) {
+    return res.status(403).json({ error: 'Forbidden: Driver or admin access required' });
+  }
+
   const parsedParams = routeBinParamsSchema.safeParse(req.params);
   if (!parsedParams.success) {
     return res.status(400).json({ error: getValidationErrorMessage(parsedParams.error) });
@@ -82,10 +90,6 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
 
   const { routeId, binId } = parsedParams.data;
   const { status, wasOverflowing, missedReasonCode, missedNote } = parsedBody.data;
-
-  if (!req.user) {
-    return res.status(401).json({ error: 'Unauthorized: Missing user context' });
-  }
 
   try {
     const [targetRoute] = await db.select({
@@ -208,6 +212,10 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
 };
 
 export const completeRoute = async (req: Request, res: Response): Promise<any> => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'driver')) {
+    return res.status(403).json({ error: 'Forbidden: Driver or admin access required' });
+  }
+
   const parsedParams = routeIdParamsSchema.safeParse(req.params);
 
   if (!parsedParams.success) {
@@ -215,10 +223,6 @@ export const completeRoute = async (req: Request, res: Response): Promise<any> =
   }
 
   const { routeId } = parsedParams.data;
-
-  if (!req.user) {
-    return res.status(401).json({ error: 'Unauthorized: Missing user context' });
-  }
 
   try {
     const [targetRoute] = await db.select({

@@ -64,6 +64,10 @@ export const createDriver = async (req: Request, res: Response): Promise<any> =>
 
 export const getDriverStats = async (req: Request<{ driverId: string }>, res: Response) => {
   try {
+    if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'driver')) {
+      return res.status(403).json({ error: 'Forbidden: Driver or admin access required' });
+    }
+
     const parsedParams = driverIdParamsSchema.safeParse(req.params);
 
     if (!parsedParams.success) {
