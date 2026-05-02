@@ -98,6 +98,16 @@ export const loginBodySchema = z.object({
   password: z.string().min(1, 'Password is required.'),
 });
 
+export const signupBodySchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters.'),
+  email: z.string().trim().email('A valid email is required.'),
+  password: z
+    .string()
+    .min(6, 'Password must be at least 6 characters long.')
+    .max(72, 'Password must be 72 characters or fewer.'),
+  phone: optionalPhoneSchema,
+});
+
 export const createBinBodySchema = z.object({
   latitude: z
     .coerce

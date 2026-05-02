@@ -3,7 +3,52 @@ import { db } from '../db/db.js';
 import { users } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
-import { getValidationErrorMessage, loginBodySchema } from '../validation/schemas.js';
+import { getValidationErrorMessage, loginBodySchema, signupBodySchema } from '../validation/schemas.js';
+
+export const signupUser = async (req: Request, res: Response): Promise<any> => {
+  const parsedBody = signupBodySchema.safeParse(req.body);
+
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
+  }
+
+  const { name, email, password, phone } = parsedBody.data;
+
+  try {
+    const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
+    if (existingUser.length > 0) {
+      return res.status(409).json({ error: 'Email already in use' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const [createdUser] = await db
+      .insert(users)
+      .values({
+        name,
+        email,
+        passwordHash,
+        phone,
+        role: 'user',
+      })
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+      });
+
+    if (!createdUser) {
+      return res.status(500).json({ error: 'Failed to create account' });
+    }
+
+    return res.status(201).json(createdUser);
+  } catch (error) {
+    console.error('Signup error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
 
 export const loginUser = async (req: Request, res: Response): Promise<any> => {
   const parsedBody = loginBodySchema.safeParse(req.body);
