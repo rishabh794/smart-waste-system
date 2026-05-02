@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const uuidSchema = z.string().uuid('Invalid ID format.');
 const phonePattern = /^\+?[0-9()\-\s]{7,20}$/;
+const cloudinaryUrlPattern = /^https?:\/\/(?:res\.cloudinary\.com)\/.+/i;
 
 const optionalZoneSchema = z.preprocess(
   (value) => {
@@ -30,8 +31,35 @@ const optionalPhoneSchema = z.preprocess(
     .optional()
 );
 
+const optionalAddressSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? undefined : trimmed;
+  },
+  z.string().max(255, 'Address must be 255 characters or fewer.').optional()
+);
+
+const optionalAdminNoteSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? undefined : trimmed;
+  },
+  z.string().max(1000, 'Admin notes must be 1000 characters or fewer.').optional()
+);
+
 const binConditionStatusValues = ['active', 'maintenance', 'retired'] as const;
 const binConditionStatusSchema = z.enum(binConditionStatusValues);
+
+const reportStatusValues = ['submitted', 'in_review', 'resolved', 'rejected'] as const;
+const reportStatusSchema = z.enum(reportStatusValues);
 
 const missedReasonCodeValues = [
   'road_blocked',
@@ -97,6 +125,47 @@ export const createDriverBodySchema = z.object({
     .min(6, 'Password must be at least 6 characters long.')
     .max(72, 'Password must be 72 characters or fewer.'),
   phone: optionalPhoneSchema,
+});
+
+export const createReportBodySchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(5, 'Title must be at least 5 characters.')
+    .max(120, 'Title must be 120 characters or fewer.'),
+  description: z
+    .string()
+    .trim()
+    .min(10, 'Description must be at least 10 characters.')
+    .max(2000, 'Description must be 2000 characters or fewer.'),
+  category: z
+    .string()
+    .trim()
+    .min(2, 'Category must be at least 2 characters.')
+    .max(50, 'Category must be 50 characters or fewer.')
+    .optional()
+    .default('general'),
+  latitude: z
+    .coerce
+    .number()
+    .min(-90, 'Latitude must be between -90 and 90.')
+    .max(90, 'Latitude must be between -90 and 90.'),
+  longitude: z
+    .coerce
+    .number()
+    .min(-180, 'Longitude must be between -180 and 180.')
+    .max(180, 'Longitude must be between -180 and 180.'),
+  imageUrl: z
+    .string()
+    .trim()
+    .url('A valid image URL is required.')
+    .regex(cloudinaryUrlPattern, 'Image URL must be a Cloudinary URL.'),
+  address: optionalAddressSchema,
+});
+
+export const updateReportStatusBodySchema = z.object({
+  status: reportStatusSchema,
+  adminNotes: optionalAdminNoteSchema,
 });
 
 export const createRouteBodySchema = z
@@ -165,6 +234,10 @@ export const routeBinParamsSchema = z.object({
 
 export const binIdParamsSchema = z.object({
   binId: uuidSchema,
+});
+
+export const reportIdParamsSchema = z.object({
+  reportId: uuidSchema,
 });
 
 export const getValidationErrorMessage = (error: z.ZodError) => {

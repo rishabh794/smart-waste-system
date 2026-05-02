@@ -8,7 +8,7 @@ async function dropTables() {
   console.log('--- Dropping All Tables ---');
   
   try {
-    await db.execute(sql`DROP TABLE IF EXISTS route_bins, routes, bins, users CASCADE;`);
+    await db.execute(sql`DROP TABLE IF EXISTS reports, route_bins, routes, bins, users CASCADE;`);
     console.log('✅ Tables dropped successfully.');
   } catch (error) {
     console.error('❌ Failed to drop tables:', error);
