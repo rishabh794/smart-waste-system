@@ -1,21 +1,12 @@
 import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
-
 
 export async function GET(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
-  if (!token) {
+  if (!token || typeof token.accessToken !== 'string' || token.accessToken.length === 0) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  // Re-sign with same secret so Express can verify it
-  const signed = jwt.sign(
-    { id: token.id, role: token.role },
-    process.env.NEXTAUTH_SECRET!,
-    { expiresIn: '7d' }
-  );
-
-  return NextResponse.json({ token: signed });
+  return NextResponse.json({ token: token.accessToken });
 }

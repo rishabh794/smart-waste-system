@@ -12,6 +12,7 @@ export const authenticatedUserSchema = z.object({
   name: z.string().trim().min(1, 'Invalid user profile.'),
   email: z.string().trim().email('Invalid user profile.'),
   role: z.enum(['admin', 'driver']),
+  accessToken: z.string().trim().min(1, 'Invalid user profile.'),
 });
 
 export const createBinFormSchema = z.object({

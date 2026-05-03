@@ -1,5 +1,5 @@
 export const apiFetch = async (url: string, options: RequestInit = {}) => {
-  // Get the signed token from our Next.js endpoint
+  // Read the existing Express JWT from NextAuth's encrypted cookie (no re-signing).
   const tokenRes = await fetch('/api/auth/token');
   
   if (!tokenRes.ok) {

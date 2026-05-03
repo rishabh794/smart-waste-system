@@ -6,8 +6,8 @@ interface TokenPayload extends JwtPayload {
   role: 'admin' | 'driver' | 'user';
 }
 
-const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET;
-if (!NEXTAUTH_SECRET) throw new Error('NEXTAUTH_SECRET is not defined in environment');
+const ACCESS_TOKEN_SECRET = process.env.JWT_SECRET;
+if (!ACCESS_TOKEN_SECRET) throw new Error('JWT_SECRET is not defined in environment');
 
 export const requireAuth = (req: Request, res: Response, next: NextFunction): any => {
   const authHeader = req.headers.authorization;
@@ -19,7 +19,7 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): an
   const token = authHeader.split(' ')[1]!; 
 
   try {
-    const decoded = jwt.verify(token, NEXTAUTH_SECRET as string) as unknown as TokenPayload;
+    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as unknown as TokenPayload;
 
     if (decoded.role !== 'user') {
       return res.status(403).json({ error: 'Forbidden: Citizen access required' });
@@ -42,7 +42,7 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction): a
   const token = authHeader.split(' ')[1]!; 
 
   try {
-    const decoded = jwt.verify(token, NEXTAUTH_SECRET as string) as unknown as TokenPayload;
+    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as unknown as TokenPayload;
 
     if (decoded.role !== 'admin') {
       return res.status(403).json({ error: 'Forbidden: Admin access required' });
@@ -65,7 +65,7 @@ export const requireDriverOrAdmin = (req: Request, res: Response, next: NextFunc
   const token = authHeader.split(' ')[1]!;
 
   try {
-    const decoded = jwt.verify(token, NEXTAUTH_SECRET as string) as unknown as TokenPayload;
+    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as unknown as TokenPayload;
 
     if (decoded.role !== 'admin' && decoded.role !== 'driver') {
       return res.status(403).json({ error: 'Forbidden: Driver or admin access required' });

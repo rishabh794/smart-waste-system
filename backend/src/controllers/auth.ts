@@ -3,7 +3,13 @@ import { db } from '../db/db.js';
 import { users } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { getValidationErrorMessage, loginBodySchema, signupBodySchema } from '../validation/schemas.js';
+
+const ACCESS_TOKEN_SECRET = process.env.JWT_SECRET ?? process.env.NEXTAUTH_SECRET;
+if (!ACCESS_TOKEN_SECRET) {
+  throw new Error('JWT_SECRET or NEXTAUTH_SECRET is not defined in environment');
+}
 
 export const signupUser = async (req: Request, res: Response): Promise<any> => {
   const parsedBody = signupBodySchema.safeParse(req.body);
@@ -73,11 +79,18 @@ export const loginUser = async (req: Request, res: Response): Promise<any> => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    const accessToken = jwt.sign(
+      { id: user.id, role: user.role },
+      ACCESS_TOKEN_SECRET,
+      { expiresIn: '7d' }
+    );
+
     return res.status(200).json({
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
+      accessToken,
     });
   } catch (error) {
     console.error('Login error:', error);
