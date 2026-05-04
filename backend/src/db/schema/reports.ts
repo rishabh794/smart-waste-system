@@ -20,6 +20,8 @@ export const reports = pgTable('reports', {
   status: reportStatusEnum('status').notNull().default('submitted'),
   adminNotes: text('admin_notes'),
   resolvedAt: timestamp('resolved_at'),
+  resolvedById: uuid('resolved_by_id').references(() => users.id),
+  resolvedByName: text('resolved_by_name'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at')
   .notNull()

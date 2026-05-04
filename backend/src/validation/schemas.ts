@@ -138,6 +138,7 @@ export const createDriverBodySchema = z.object({
 });
 
 export const createReportBodySchema = z.object({
+  binId: uuidSchema.optional(),
   title: z
     .string()
     .trim()

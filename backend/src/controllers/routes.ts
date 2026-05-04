@@ -10,6 +10,7 @@ import {
   routeIdParamsSchema,
   updateBinStatusBodySchema,
 } from '../validation/schemas.js';
+import { resolveReportsForBin } from '../services/reportStatus.js';
 
 const getISTDate = () => {
   return new Intl.DateTimeFormat('en-CA', {
@@ -109,6 +110,8 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
       return res.status(403).json({ error: 'Forbidden: Cannot update another driver\'s route' });
     }
 
+    const actorUserId = req.user.id;
+
     if (targetRoute.status !== 'pending') {
       return res.status(400).json({ error: 'Cannot update bin status for a completed route' });
     }
@@ -118,6 +121,19 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
     const normalizedWasOverflowing = status === 'collected' ? Boolean(wasOverflowing) : false;
 
     await db.transaction(async (tx) => {
+      const [actor] = await tx
+        .select({
+          id: users.id,
+          name: users.name,
+        })
+        .from(users)
+        .where(eq(users.id, actorUserId))
+        .limit(1);
+
+      if (!actor) {
+        throw new Error('ACTOR_NOT_FOUND');
+      }
+
       const [updatedBin] = await tx.update(routeBins)
         .set({
           fillStatus: status,
@@ -136,6 +152,8 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
 
       // Keep physical bin telemetry in sync only when the bin is actually emptied.
       if (status === 'collected') {
+        await resolveReportsForBin(tx, binId, actor);
+
         await tx.update(bins)
           .set({
             fillLevel: 0,
@@ -147,6 +165,10 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
 
     return res.status(200).json({ message: `Bin ${binId} marked as ${status}` });
   } catch (error) {
+    if (error instanceof Error && error.message === 'ACTOR_NOT_FOUND') {
+      return res.status(401).json({ error: 'Unauthorized: User profile not found' });
+    }
+
     if (error instanceof Error && error.message === 'BIN_NOT_ASSIGNED_TO_ROUTE') {
       return res.status(404).json({ error: 'Bin is not assigned to this route' });
     }

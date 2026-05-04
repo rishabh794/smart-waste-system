@@ -8,6 +8,7 @@ import {
   reportIdParamsSchema,
   updateReportStatusBodySchema,
 } from '../validation/schemas.js';
+import { updateReportStatusWithActor } from '../services/reportStatus.js';
 
 export const createReport = async (req: Request, res: Response): Promise<any> => {
   if (!req.user) {
@@ -24,12 +25,14 @@ export const createReport = async (req: Request, res: Response): Promise<any> =>
   }
 
   const { title, description, category, latitude, longitude, imageUrl, address } = parsedBody.data;
+  const { binId } = parsedBody.data;
 
   try {
     const [newReport] = await db
       .insert(reports)
       .values({
         userId: req.user.id,
+        binId,
         title,
         description,
         category,
@@ -40,6 +43,7 @@ export const createReport = async (req: Request, res: Response): Promise<any> =>
       })
       .returning({
         id: reports.id,
+        binId: reports.binId,
         title: reports.title,
         description: reports.description,
         category: reports.category,
@@ -48,6 +52,8 @@ export const createReport = async (req: Request, res: Response): Promise<any> =>
         imageUrl: reports.imageUrl,
         address: reports.address,
         status: reports.status,
+        resolvedById: reports.resolvedById,
+        resolvedByName: reports.resolvedByName,
         createdAt: reports.createdAt,
       });
 
@@ -75,6 +81,7 @@ export const getMyReports = async (req: Request, res: Response): Promise<any> =>
     const myReports = await db
       .select({
         id: reports.id,
+        binId: reports.binId,
         title: reports.title,
         description: reports.description,
         category: reports.category,
@@ -87,6 +94,8 @@ export const getMyReports = async (req: Request, res: Response): Promise<any> =>
         createdAt: reports.createdAt,
         updatedAt: reports.updatedAt,
         resolvedAt: reports.resolvedAt,
+        resolvedById: reports.resolvedById,
+        resolvedByName: reports.resolvedByName,
       })
       .from(reports)
       .where(eq(reports.userId, req.user.id))
@@ -108,6 +117,7 @@ export const getAllReports = async (req: Request, res: Response): Promise<any> =
     const allReports = await db
       .select({
         id: reports.id,
+        binId: reports.binId,
         title: reports.title,
         description: reports.description,
         category: reports.category,
@@ -118,6 +128,8 @@ export const getAllReports = async (req: Request, res: Response): Promise<any> =
         status: reports.status,
         adminNotes: reports.adminNotes,
         resolvedAt: reports.resolvedAt,
+        resolvedById: reports.resolvedById,
+        resolvedByName: reports.resolvedByName,
         createdAt: reports.createdAt,
         updatedAt: reports.updatedAt,
         reportedBy: users.name,
@@ -153,40 +165,25 @@ export const updateReportStatus = async (req: Request<{ reportId: string }>, res
   const { status, adminNotes } = parsedBody.data;
 
   try {
-    const [existingReport] = await db
+    const [actor] = await db
       .select({
-        id: reports.id,
-        resolvedAt: reports.resolvedAt,
+        id: users.id,
+        name: users.name,
       })
-      .from(reports)
-      .where(eq(reports.id, reportId))
+      .from(users)
+      .where(eq(users.id, req.user.id))
       .limit(1);
 
-    if (!existingReport) {
-      return res.status(404).json({ error: 'Report not found' });
+    if (!actor) {
+      return res.status(401).json({ error: 'Unauthorized: User profile not found' });
     }
 
-    const resolvedAt = status === 'resolved' ? existingReport.resolvedAt ?? new Date() : null;
-
-    const [updatedReport] = await db
-      .update(reports)
-      .set({
-        status,
-        adminNotes,
-        resolvedAt,
-        updatedAt: new Date(),
-      })
-      .where(eq(reports.id, reportId))
-      .returning({
-        id: reports.id,
-        status: reports.status,
-        adminNotes: reports.adminNotes,
-        resolvedAt: reports.resolvedAt,
-        updatedAt: reports.updatedAt,
-      });
+    const updatedReport = await db.transaction(async (tx) => {
+      return updateReportStatusWithActor(tx, reportId, status, adminNotes, actor);
+    });
 
     if (!updatedReport) {
-      return res.status(500).json({ error: 'Failed to update report status' });
+      return res.status(404).json({ error: 'Report not found' });
     }
 
     return res.status(200).json(updatedReport);
