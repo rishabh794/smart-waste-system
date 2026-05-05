@@ -98,6 +98,10 @@ export const loginBodySchema = z.object({
   password: z.string().min(1, 'Password is required.'),
 });
 
+export const googleLoginBodySchema = z.object({
+  idToken: z.string().min(1, 'ID token is required.'),
+});
+
 export const signupBodySchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters.'),
   email: z.string().trim().email('A valid email is required.'),

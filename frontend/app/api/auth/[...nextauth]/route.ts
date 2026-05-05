@@ -1,6 +1,41 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { authenticatedUserSchema, loginFormSchema } from "@/lib/validation";
+
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+if (!googleClientId || !googleClientSecret) {
+  throw new Error("GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is not defined in environment");
+}
+
+const backendBaseUrl = process.env.BACKEND_URL ?? "http://localhost:5000";
+
+type GoogleAuthResponse = {
+  id: string;
+  role: string;
+  accessToken: string;
+};
+
+const exchangeGoogleToken = async (idToken: string): Promise<GoogleAuthResponse> => {
+  const res = await fetch(`${backendBaseUrl}/api/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken }),
+  });
+
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({}));
+    const message =
+      typeof payload?.error === "string" && payload.error.trim().length > 0
+        ? payload.error
+        : "Google sign-in failed";
+    throw new Error(message);
+  }
+
+  return res.json() as Promise<GoogleAuthResponse>;
+};
 
 const handler = NextAuth({
   providers: [
@@ -39,15 +74,32 @@ const handler = NextAuth({
 
         return parsedUser.data;
       }
+    }),
+    GoogleProvider({
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
+      if (account?.provider === "google") {
+        if (!account.id_token) {
+          throw new Error("Missing Google ID token");
+        }
+
+        const googleAuth = await exchangeGoogleToken(account.id_token);
+        token.id = googleAuth.id;
+        token.role = googleAuth.role;
+        token.accessToken = googleAuth.accessToken;
+        return token;
+      }
+
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.accessToken = user.accessToken;
       }
+
       return token;
     },
     async session({ session, token }) {
