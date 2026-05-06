@@ -188,43 +188,85 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
   const { driverId, binIds } = parsedBody.data;
 
   try {
-    const activeBins = await db
-      .select({ id: bins.id })
-      .from(bins)
-      .where(and(inArray(bins.id, binIds), eq(bins.status, 'active')));
+    const result = await db.transaction(async (tx) => {
+      const [pendingRoute] = await tx
+        .select({
+          id: routes.id,
+          assignedDate: routes.assignedDate,
+        })
+        .from(routes)
+        .where(and(eq(routes.driverId, driverId), eq(routes.status, 'pending')))
+        .limit(1);
 
-    if (activeBins.length !== binIds.length) {
+      if (pendingRoute) {
+        return { status: 'driver-pending', pendingRoute } as const;
+      }
+
+      const activeBins = await tx
+        .select({ id: bins.id })
+        .from(bins)
+        .where(and(inArray(bins.id, binIds), eq(bins.status, 'active')));
+
+      const pendingAssignedBins = await tx
+        .select({ binId: routeBins.binId })
+        .from(routeBins)
+        .innerJoin(routes, eq(routeBins.routeId, routes.id))
+        .where(and(inArray(routeBins.binId, binIds), eq(routes.status, 'pending')));
+
       const activeBinSet = new Set(activeBins.map((bin) => bin.id));
-      const unavailableBinIds = binIds.filter((binId) => !activeBinSet.has(binId));
+      const pendingBinSet = new Set(pendingAssignedBins.map((bin) => bin.binId));
+      const unavailableBinIds = binIds.filter(
+        (binId) => !activeBinSet.has(binId) || pendingBinSet.has(binId)
+      );
 
-      return res.status(400).json({
-        error: 'Some bins are unavailable for route assignment',
-        unavailableBinIds,
+      if (unavailableBinIds.length > 0) {
+        return { status: 'bins-unavailable', unavailableBinIds } as const;
+      }
+
+      const [newRoute] = await tx
+        .insert(routes)
+        .values({
+          driverId,
+          assignedDate: getISTDate(),
+          status: 'pending',
+        })
+        .returning();
+
+      if (!newRoute) {
+        return { status: 'create-failed' } as const;
+      }
+
+      const routeBinsData = binIds.map((binId, index) => ({
+        routeId: newRoute.id,
+        binId: binId,
+        sequenceNumber: index + 1,
+        fillStatus: 'unknown',
+        wasOverflowing: false,
+      }));
+
+      await tx.insert(routeBins).values(routeBinsData);
+
+      return { status: 'created', routeId: newRoute.id } as const;
+    });
+
+    if (result.status === 'driver-pending') {
+      return res.status(409).json({
+        error: 'Driver already has a pending route',
+        pendingRouteId: result.pendingRoute.id,
+        assignedDate: result.pendingRoute.assignedDate,
       });
     }
 
-    // Create the Route
-    const [newRoute] = await db.insert(routes).values({
-      driverId,
-      assignedDate: getISTDate(), 
-      status: 'pending'
-    }).returning();
-
-    if (!newRoute) {
-      return res.status(500).json({ error: 'Failed to create route' });
+    if (result.status === 'bins-unavailable') {
+      return res.status(409).json({
+        error: 'Some bins are unavailable for route assignment',
+        unavailableBinIds: result.unavailableBinIds,
+      });
     }
 
-    // Prepare the payload for the route_bins junction table
-    const routeBinsData = binIds.map((binId, index) => ({
-      routeId: newRoute.id,
-      binId: binId,
-      sequenceNumber: index + 1, 
-      fillStatus: 'unknown',
-      wasOverflowing: false,
-    }));
-
-    // Insert all bins into the route at once
-    await db.insert(routeBins).values(routeBinsData);
+    if (result.status === 'create-failed') {
+      return res.status(500).json({ error: 'Failed to create route' });
+    }
 
     return res.status(201).json({ message: 'Route created successfully' });
   } catch (error) {
