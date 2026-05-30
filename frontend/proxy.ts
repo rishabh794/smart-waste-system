@@ -3,7 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const ADMIN_ONLY_PREFIXES = ["/create", "/status", "/admin"];
 const DRIVER_ONLY_PREFIXES = ["/driver"];
-const AUTH_REQUIRED_PREFIXES = ["/dashboard", ...ADMIN_ONLY_PREFIXES, ...DRIVER_ONLY_PREFIXES];
+const USER_ONLY_PREFIXES = ["/report", "/reports"];
+const AUTH_REQUIRED_PREFIXES = [
+  "/dashboard",
+  ...ADMIN_ONLY_PREFIXES,
+  ...DRIVER_ONLY_PREFIXES,
+  ...USER_ONLY_PREFIXES,
+];
 
 const startsWithAny = (pathname: string, prefixes: string[]) => {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -17,6 +23,7 @@ export async function proxy(req: NextRequest) {
   const isAuthRequiredRoute = startsWithAny(pathname, AUTH_REQUIRED_PREFIXES);
   const isAdminOnlyRoute = startsWithAny(pathname, ADMIN_ONLY_PREFIXES);
   const isDriverOnlyRoute = startsWithAny(pathname, DRIVER_ONLY_PREFIXES);
+  const isUserOnlyRoute = startsWithAny(pathname, USER_ONLY_PREFIXES);
 
   if (!token && isAuthRequiredRoute) { // Redirect unauthenticated users to login, preserving their intended destination as a callback.
     const loginUrl = new URL("/login", req.url);
@@ -25,7 +32,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (pathname === "/login" && token) {
+  if ((pathname === "/login" || pathname === "/signup") && token) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
@@ -34,6 +41,10 @@ export async function proxy(req: NextRequest) {
   }
 
   if (token && isDriverOnlyRoute && role !== "driver") {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
+  if (token && isUserOnlyRoute && role !== "user") {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
@@ -47,6 +58,9 @@ export const config = {
     "/status/:path*",
     "/admin/:path*",
     "/driver/:path*",
+    "/report/:path*",
+    "/reports/:path*",
     "/login",
+    "/signup",
   ],
 };

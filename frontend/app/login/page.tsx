@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
@@ -25,6 +26,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +63,18 @@ export default function LoginPage() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    if (isGoogleSubmitting) return;
+    setIsGoogleSubmitting(true);
+
+    try {
+      const callbackUrl = getSafeRedirectPath(searchParams.get("callbackUrl"));
+      await signIn("google", { callbackUrl });
+    } finally {
+      setIsGoogleSubmitting(false);
+    }
+  };
+
   return (
     <div className="site-container py-10 sm:py-14">
       <div className="grid overflow-hidden rounded-2xl border border-[#dfe9e3] lg:grid-cols-[1.03fr_0.97fr]">
@@ -90,6 +104,21 @@ export default function LoginPage() {
           <p className="section-eyebrow">Smart Waste System</p>
           <h2 className="mt-2 text-3xl font-extrabold text-[#1b2a22]">Sign In</h2>
           <p className="mt-1 text-sm text-[#607267]">Use your assigned account credentials.</p>
+
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={isGoogleSubmitting}
+            className="btn-secondary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isGoogleSubmitting ? "Connecting Google..." : "Continue with Google"}
+          </button>
+
+          <div className="mt-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#7a8b81]">
+            <span className="h-px flex-1 bg-[#dde8e1]" />
+            Or use email
+            <span className="h-px flex-1 bg-[#dde8e1]" />
+          </div>
 
           {error && <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
@@ -132,6 +161,17 @@ export default function LoginPage() {
               {isSubmitting ? "Accessing Dashboard..." : "Access Dashboard"}
             </button>
           </form>
+
+          <div className="mt-5 rounded-xl border border-[#e4ece6] bg-white/80 p-4 text-sm text-[#5f7167]">
+            <p className="font-semibold text-[#1d3025]">Citizen reporting access</p>
+            <p className="mt-1">
+              Need to submit a bin issue?{" "}
+              <Link href="/signup" className="font-semibold text-[#197443] hover:underline">
+                Create a citizen account
+              </Link>
+              .
+            </p>
+          </div>
         </div>
       </div>
     </div>

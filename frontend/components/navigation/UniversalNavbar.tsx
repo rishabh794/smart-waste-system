@@ -25,6 +25,12 @@ const driverLinks = [
   { href: "/driver/stats", label: "My Stats" },
 ];
 
+const citizenLinks = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/report", label: "Report Issue" },
+  { href: "/reports", label: "My Reports" },
+];
+
 export default function UniversalNavbar() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
@@ -42,7 +48,9 @@ export default function UniversalNavbar() {
     ? adminLinks
     : stableSession?.user?.role === "driver"
       ? driverLinks
-      : publicLinks;
+      : stableSession?.user?.role === "user"
+        ? citizenLinks
+        : publicLinks;
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
