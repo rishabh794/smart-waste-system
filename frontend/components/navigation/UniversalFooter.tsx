@@ -1,14 +1,11 @@
 import Link from "next/link";
+import FooterResources from "@/components/navigation/FooterResources";
 
 const footerSections = [
   {
     title: "Resources",
-    links: [
-      { label: "Dashboard", href: "/dashboard" },
-      { label: "Route Status", href: "/status" },
-      { label: "Create Assets", href: "/create" },
-      { label: "System Login", href: "/login" },
-    ],
+    isResources: true,
+    links: [] as { label: string; href: string }[],
   },
   {
     title: "Company",
@@ -83,15 +80,19 @@ export default function UniversalFooter() {
           {footerSections.map((section) => (
             <div key={section.title}>
               <h4 className="text-sm font-extrabold text-white">{section.title}</h4>
-              <ul className="mt-3 space-y-2 text-sm text-[#a8b8af]">
-                {section.links.map((link) => (
-                  <li key={`${section.title}-${link.label}`}>
-                    <Link href={link.href} className="transition hover:text-[#d8f0e0]">
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              {"isResources" in section && section.isResources ? (
+                <FooterResources />
+              ) : (
+                <ul className="mt-3 space-y-2 text-sm text-[#a8b8af]">
+                  {section.links.map((link) => (
+                    <li key={`${section.title}-${link.label}`}>
+                      <Link href={link.href} className="transition hover:text-[#d8f0e0]">
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ))}
         </section>

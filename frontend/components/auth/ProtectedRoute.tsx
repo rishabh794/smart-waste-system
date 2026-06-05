@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import DataLoadingState from "@/components/ui/DataLoadingState";
+import { getLoginPathForCallback } from "@/lib/authRedirects";
 
 interface ProtectedRouteProps {
   children: (session: Session) => ReactNode;
@@ -38,7 +39,13 @@ export default function ProtectedRoute({
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push(redirectUnauthenticatedTo);
+      let destination = redirectUnauthenticatedTo;
+      if (redirectUnauthenticatedTo === "/login") {
+        const callbackUrl = `${window.location.pathname}${window.location.search}`;
+        const loginPath = getLoginPathForCallback(callbackUrl);
+        destination = `${loginPath}?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+      }
+      router.push(destination);
       return;
     }
 

@@ -18,6 +18,10 @@ type GoogleAuthResponse = {
   accessToken: string;
 };
 
+type GoogleAccountWithAuth = {
+  googleAuth?: GoogleAuthResponse;
+};
+
 const exchangeGoogleToken = async (idToken: string): Promise<GoogleAuthResponse> => {
   const res = await fetch(`${backendBaseUrl}/api/auth/google`, {
     method: "POST",
@@ -80,14 +84,38 @@ const handler = NextAuth({
       clientSecret: googleClientSecret,
     })
   ],
+  pages: {
+    error: "/login/citizen",
+  },
   callbacks: {
+    async signIn({ account }) {
+      if (account?.provider !== "google") {
+        return true;
+      }
+
+      if (!account.id_token) {
+        return "/login/citizen?error=MissingGoogleToken";
+      }
+
+      try {
+        const googleAuth = await exchangeGoogleToken(account.id_token);
+        (account as GoogleAccountWithAuth).googleAuth = googleAuth;
+        return true;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Google sign-in failed";
+        if (message.includes("Citizen access required")) {
+          return "/login/citizen?error=CitizenAccessRequired";
+        }
+        return `/login/citizen?error=${encodeURIComponent(message)}`;
+      }
+    },
     async jwt({ token, user, account }) {
       if (account?.provider === "google") {
-        if (!account.id_token) {
-          throw new Error("Missing Google ID token");
+        const googleAuth = (account as GoogleAccountWithAuth).googleAuth;
+        if (!googleAuth) {
+          throw new Error("Missing Google auth payload");
         }
 
-        const googleAuth = await exchangeGoogleToken(account.id_token);
         token.id = googleAuth.id;
         token.role = googleAuth.role;
         token.accessToken = googleAuth.accessToken;

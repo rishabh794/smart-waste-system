@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Providers } from "./Providers";
+import MobileRoleNav from "../components/navigation/MobileRoleNav";
 import UniversalNavbar from "../components/navigation/UniversalNavbar";
 import UniversalFooter from "../components/navigation/UniversalFooter";
 
@@ -19,7 +20,8 @@ export default function RootLayout({
         <Providers>
           <div className="flex min-h-screen flex-col">
             <UniversalNavbar />
-            <main className="flex-1">{children}</main>
+            <main className="app-main flex-1">{children}</main>
+            <MobileRoleNav />
             <UniversalFooter />
           </div>
         </Providers>

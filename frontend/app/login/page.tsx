@@ -1,179 +1,108 @@
-"use client";
-
-import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
-import Image from "next/image";
-import { toast } from "sonner";
-import { EyeIcon, EyeOffIcon } from "@/components/ui/icons";
-import { getValidationErrorMessage, loginFormSchema } from "@/lib/validation";
 
-const DEFAULT_REDIRECT_PATH = "/dashboard";
+const audienceCards = [
+  {
+    href: "/login/citizen",
+    title: "Citizen",
+    description: "Report bin issues and track resolutions in your neighborhood.",
+    note: "Sign in or create a free reporting account.",
+    icon: CitizenIcon,
+  },
+  {
+    href: "/login/staff",
+    title: "Driver / Operations",
+    description: "Access assigned routes, collection tasks, and operations dashboards.",
+    note: "Staff accounts are created by your administrator.",
+    icon: StaffIcon,
+  },
+];
 
-const getSafeRedirectPath = (value: string | null) => {
-  if (!value) return DEFAULT_REDIRECT_PATH;
-  if (!value.startsWith("/") || value.startsWith("//")) return DEFAULT_REDIRECT_PATH;
-  if (value.startsWith("/login")) return DEFAULT_REDIRECT_PATH;
-  return value;
-};
-
-export default function LoginPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-
-    const parsedCredentials = loginFormSchema.safeParse({ email, password });
-    if (!parsedCredentials.success) {
-      setError(getValidationErrorMessage(parsedCredentials.error));
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError("");
-
-    try {
-      const callbackUrl = getSafeRedirectPath(searchParams.get("callbackUrl"));
-
-      const res = await signIn("credentials", {
-        email: parsedCredentials.data.email,
-        password: parsedCredentials.data.password,
-        callbackUrl,
-        redirect: false,
-      });
-
-      if (res?.error) {
-        setError("Invalid email or password");
-      } else {
-        toast.success("Signed in successfully.");
-        router.push(callbackUrl);
-        router.refresh();
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    if (isGoogleSubmitting) return;
-    setIsGoogleSubmitting(true);
-
-    try {
-      const callbackUrl = getSafeRedirectPath(searchParams.get("callbackUrl"));
-      await signIn("google", { callbackUrl });
-    } finally {
-      setIsGoogleSubmitting(false);
-    }
-  };
-
+export default function LoginGatewayPage() {
   return (
     <div className="site-container py-10 sm:py-14">
-      <div className="grid overflow-hidden rounded-2xl border border-[#dfe9e3] lg:grid-cols-[1.03fr_0.97fr]">
-        <div className="relative min-h-105">
-          <Image
-            src="https://images.pexels.com/photos/69903/pexels-photo-69903.jpeg?auto=compress&cs=tinysrgb&w=1600"
-            alt="Waste collection truck"
-            fill
-            className="absolute inset-0 h-full w-full object-cover"
-            sizes="(max-width: 1024px) 100vw, 50vw"
-          />
-          <div
-            className="absolute inset-0"
-            style={{ background: "linear-gradient(90deg, rgba(14,79,42,0.85), rgba(14,79,42,0.45))" }}
-          />
-          <div className="relative p-8 text-white sm:p-10">
-            <p className="soft-pill inline-flex border-white/40 bg-white/10 text-white">Secure Access</p>
-            <h1 className="mt-4 text-4xl font-extrabold leading-tight">Operations Portal Login</h1>
-            <p className="mt-4 max-w-md text-sm leading-7 text-white/88">
-              Access your role-based dashboard to assign routes, track progress, and manage city
-              waste collection activities.
-            </p>
-          </div>
-        </div>
+      <div className="mx-auto max-w-3xl">
+        <p className="section-eyebrow text-center">Smart Waste System</p>
+        <h1 className="mt-2 text-center text-4xl font-extrabold text-[#1b2a22]">Sign in to SmartWaste</h1>
+        <p className="mt-3 text-center text-sm text-[#607267]">
+          Choose how you use the platform. Your account type is set when you register or are invited.
+        </p>
 
-        <div className="bg-[#f8fcf9] p-8 sm:p-10">
-          <p className="section-eyebrow">Smart Waste System</p>
-          <h2 className="mt-2 text-3xl font-extrabold text-[#1b2a22]">Sign In</h2>
-          <p className="mt-1 text-sm text-[#607267]">Use your assigned account credentials.</p>
-
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            disabled={isGoogleSubmitting}
-            className="btn-secondary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {isGoogleSubmitting ? "Connecting Google..." : "Continue with Google"}
-          </button>
-
-          <div className="mt-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#7a8b81]">
-            <span className="h-px flex-1 bg-[#dde8e1]" />
-            Or use email
-            <span className="h-px flex-1 bg-[#dde8e1]" />
-          </div>
-
-          {error && <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-semibold text-[#21412f]">Email</label>
-              <input
-                type="email"
-                required
-                className="input-clean"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold text-[#21412f]">Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  className="input-clean pr-11"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute inset-y-0 right-2 my-auto inline-flex h-8 w-8 items-center justify-center rounded-md text-[#4c6658] transition hover:bg-[#e9f4ed] hover:text-[#1f6b40]"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          {audienceCards.map((card) => (
+            <Link
+              key={card.href}
+              href={card.href}
+              className="group rounded-2xl border border-[#dfe9e3] bg-[#f8fcf9] p-6 transition hover:border-[#b8d4c0] hover:shadow-md"
             >
-              {isSubmitting ? "Accessing Dashboard..." : "Access Dashboard"}
-            </button>
-          </form>
-
-          <div className="mt-5 rounded-xl border border-[#e4ece6] bg-white/80 p-4 text-sm text-[#5f7167]">
-            <p className="font-semibold text-[#1d3025]">Citizen reporting access</p>
-            <p className="mt-1">
-              Need to submit a bin issue?{" "}
-              <Link href="/signup" className="font-semibold text-[#197443] hover:underline">
-                Create a citizen account
-              </Link>
-              .
-            </p>
-          </div>
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-[#e8f5ed] text-[#197443]">
+                <card.icon />
+              </span>
+              <h2 className="mt-4 text-xl font-extrabold text-[#1d3025]">{card.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-[#5f7167]">{card.description}</p>
+              <p className="mt-3 text-xs text-[#7a8b81]">{card.note}</p>
+              <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#197443] group-hover:underline">
+                Continue
+                <ArrowIcon />
+              </span>
+            </Link>
+          ))}
         </div>
+
+        <p className="mt-8 text-center text-sm text-[#5f7167]">
+          New citizen?{" "}
+          <Link href="/signup" className="font-semibold text-[#197443] hover:underline">
+            Create an account
+          </Link>
+        </p>
       </div>
     </div>
+  );
+}
+
+function CitizenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
+      <path
+        d="M12 21C16.4183 21 20 17.4183 20 13C20 8.58172 16.4183 5 12 5C7.58172 5 4 8.58172 4 13C4 17.4183 7.58172 21 12 21Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path d="M12 11V13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M12 16H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function StaffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
+      <path
+        d="M3 13H15V19H3V13Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15 15H18L21 18V19H15V15Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M6 16H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M6 13V10C6 8.34315 7.34315 7 9 7H12"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
+      <path d="M5 10H15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M11 6L15 10L11 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

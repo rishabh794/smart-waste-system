@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import DashboardPageHeader from "@/components/ui/DashboardPageHeader";
 import { ChevronIcon } from "@/components/ui/icons";
 import { getApiErrorMessage } from "@/lib/services/apiService";
 import { createReport } from "@/lib/services/reportService";
@@ -238,16 +239,14 @@ export default function ReportIssuePage() {
     <ProtectedRoute allowedRoles={["user"]}>
       {() => (
         <div className="site-container page-shell">
-          <div className="mb-7 border-b border-[#e5ede7] pb-5">
-            <p className="section-eyebrow">Citizen Report</p>
-            <h1 className="mt-2 text-3xl font-extrabold text-[#1b2a22]">Report a Bin Issue</h1>
-            <p className="mt-2 max-w-2xl text-sm text-[#607267]">
-              We capture your location automatically and upload your photo directly to Cloudinary for faster triage.
-            </p>
-          </div>
+          <DashboardPageHeader
+            eyebrow="Citizen Report"
+            title="Report a Bin Issue"
+            description="We capture your location automatically and upload your photo directly to Cloudinary for faster triage."
+          />
 
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-            <form onSubmit={handleSubmit} className="rounded-2xl border border-[#e4ece6] bg-white/90 p-6">
+            <form onSubmit={handleSubmit} className="soft-surface rounded-2xl p-5 sm:p-6">
               <div className="grid gap-4">
                 <div>
                   <label className="mb-1 block text-sm font-semibold text-[#21412f]">Title</label>
@@ -310,7 +309,7 @@ export default function ReportIssuePage() {
                   />
                 </div>
 
-                <div className="rounded-xl border border-[#e4ece6] bg-[#f8fcf9] p-4">
+                <div className="border-t border-[#e6efe9] pt-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-[#21412f]">Location</p>
@@ -420,22 +419,17 @@ export default function ReportIssuePage() {
               </div>
             </form>
 
-            <aside className="rounded-2xl border border-[#dfe9e3] bg-[#f8fcf9] p-6">
+            <aside className="soft-surface rounded-2xl p-5 sm:p-6">
               <p className="section-eyebrow">Submission Tips</p>
-              <h2 className="mt-2 text-xl font-extrabold text-[#1b2a22]">Help us verify quickly</h2>
-              <ul className="mt-4 space-y-4 border-l-2 border-[#d6e6dc] pl-4 text-sm text-[#5d6f65]">
+              <h2 className="mt-2 text-lg font-extrabold text-[#1b2a22] sm:text-xl">Help us verify quickly</h2>
+              <ul className="mt-4 space-y-3 border-l-2 border-[#d6e6dc] pl-4 text-sm text-[#5d6f65]">
                 <li>Capture a clear photo that shows the bin and nearby surroundings.</li>
                 <li>The photo uploads to Cloudinary automatically after selection.</li>
                 <li>Share the closest intersection or landmark in the description.</li>
               </ul>
-
-              <div className="mt-6 rounded-xl border border-[#e4ece6] bg-white/70 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1a7b3a]">Need Help?</p>
-                <p className="mt-2 text-sm text-[#4f6158]">
-                  Reports move faster when location and visuals are complete. You can track every status change
-                  from the My Reports page.
-                </p>
-              </div>
+              <p className="mt-5 border-t border-[#e6efe9] pt-4 text-sm text-[#4f6158]">
+                Reports move faster when location and visuals are complete. Track status changes from My Reports.
+              </p>
             </aside>
           </div>
         </div>

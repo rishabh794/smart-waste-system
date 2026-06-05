@@ -1,5 +1,6 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
+import { getLoginPathForCallback } from "@/lib/authRedirects";
 
 const ADMIN_ONLY_PREFIXES = ["/create", "/status", "/admin"];
 const DRIVER_ONLY_PREFIXES = ["/driver"];
@@ -25,14 +26,21 @@ export async function proxy(req: NextRequest) {
   const isDriverOnlyRoute = startsWithAny(pathname, DRIVER_ONLY_PREFIXES);
   const isUserOnlyRoute = startsWithAny(pathname, USER_ONLY_PREFIXES);
 
-  if (!token && isAuthRequiredRoute) { // Redirect unauthenticated users to login, preserving their intended destination as a callback.
-    const loginUrl = new URL("/login", req.url);
+  if (!token && isAuthRequiredRoute) {
     const callbackUrl = `${pathname}${search}`;
+    const loginPath = getLoginPathForCallback(callbackUrl);
+    const loginUrl = new URL(loginPath, req.url);
     loginUrl.searchParams.set("callbackUrl", callbackUrl);
     return NextResponse.redirect(loginUrl);
   }
 
-  if ((pathname === "/login" || pathname === "/signup") && token) {
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/login/citizen" ||
+    pathname === "/login/staff";
+
+  if (isAuthPage && token) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
@@ -61,6 +69,8 @@ export const config = {
     "/report/:path*",
     "/reports/:path*",
     "/login",
+    "/login/citizen",
+    "/login/staff",
     "/signup",
   ],
 };

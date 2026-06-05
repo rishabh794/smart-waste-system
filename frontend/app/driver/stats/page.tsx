@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import ProtectedRoute from "../../../components/auth/ProtectedRoute";
 import DriverStats from "../../../components/driver/DriverStats";
+import DashboardPageHeader from "@/components/ui/DashboardPageHeader";
 
 const DRIVER_ROLES = ["driver"];
 
@@ -10,14 +12,16 @@ export default function DriverStatsPage() {
     <ProtectedRoute allowedRoles={DRIVER_ROLES}>
       {(session) => (
         <div className="site-container page-shell">
-          <div className="mb-7 border-b border-[#e5ede7] pb-5">
-            <p className="section-eyebrow">Driver Insights</p>
-            <h1 className="mt-2 text-3xl font-extrabold text-[#1b2a22]">My Collection Stats</h1>
-            <p className="mt-2 max-w-2xl text-sm text-[#607267]">
-              Review your completed routes, bin health, and weekly pickup velocity.
-            </p>
-          </div>
-
+          <DashboardPageHeader
+            eyebrow="Driver Insights"
+            title="My Collection Stats"
+            description="Review your completed routes, bin health, and weekly pickup velocity."
+            actions={
+              <Link href="/dashboard" className="btn-secondary">
+                Back to Route
+              </Link>
+            }
+          />
           <DriverStats driverId={session.user?.id as string} />
         </div>
       )}

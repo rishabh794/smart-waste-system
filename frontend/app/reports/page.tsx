@@ -5,6 +5,7 @@ import Image, { type ImageLoader } from "next/image";
 import useSWR from "swr";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import DataLoadingState from "@/components/ui/DataLoadingState";
+import DashboardPageHeader from "@/components/ui/DashboardPageHeader";
 import { fetchMyReports, USER_REPORTS_KEY } from "@/lib/services/reportService";
 import type { CitizenReport, ReportStatus } from "@/types/CitizenTypes";
 
@@ -54,20 +55,16 @@ export default function ReportsPage() {
     <ProtectedRoute allowedRoles={["user"]}>
       {() => (
         <div className="site-container page-shell">
-          <div className="mb-7 border-b border-[#e5ede7] pb-5">
-            <p className="section-eyebrow">Citizen History</p>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-3xl font-extrabold text-[#1b2a22]">My Reports</h1>
-                <p className="mt-2 max-w-2xl text-sm text-[#607267]">
-                  Track every report you have submitted and review resolution updates from the operations team.
-                </p>
-              </div>
+          <DashboardPageHeader
+            eyebrow="Citizen History"
+            title="My Reports"
+            description="Track every report you have submitted and review resolution updates from the operations team."
+            actions={
               <Link href="/report" className="btn-primary">
                 New Report
               </Link>
-            </div>
-          </div>
+            }
+          />
 
           {isLoading && !reports && (
             <DataLoadingState
@@ -105,12 +102,12 @@ export default function ReportsPage() {
               return (
                 <article
                   key={report.id}
-                  className="rounded-2xl border border-[#e4ece6] bg-white/90 p-5 shadow-sm"
+                  className="soft-surface rounded-2xl p-4 sm:p-5"
                 >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-xl font-extrabold text-[#1d3025]">{report.title}</h2>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                        <h2 className="text-lg font-extrabold text-[#1d3025] sm:text-xl">{report.title}</h2>
                         <span
                           className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] ${statusMeta.className}`}
                         >
@@ -136,26 +133,25 @@ export default function ReportsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                    <div className="space-y-3">
-                      <div className="rounded-xl border border-[#e4ece6] bg-[#f8fcf9] p-3 text-sm text-[#4f6158]">
-                        <p>
-                          <span className="font-semibold text-[#1d3025]">Location:</span> {report.address?.trim() || "Address not provided"}
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_220px]">
+                    <div className="space-y-3 text-sm text-[#4f6158]">
+                      <p>
+                        <span className="font-semibold text-[#1d3025]">Location:</span>{" "}
+                        {report.address?.trim() || "Address not provided"}
+                      </p>
+                      <p className="text-xs text-[#6a7d72]">
+                        Lat {report.latitude}, Lng {report.longitude}
+                      </p>
+                      {report.binId && (
+                        <p className="text-xs text-[#6a7d72]">
+                          Bin ID: <span className="font-semibold text-[#2d3f36]">{report.binId}</span>
                         </p>
-                        <p className="mt-1 text-xs text-[#6a7d72]">
-                          Lat {report.latitude}, Lng {report.longitude}
-                        </p>
-                        {report.binId && (
-                          <p className="mt-2 text-xs text-[#6a7d72]">
-                            Bin ID: <span className="font-semibold text-[#2d3f36]">{report.binId}</span>
-                          </p>
-                        )}
-                      </div>
+                      )}
 
                       {report.adminNotes && (
-                        <div className="rounded-xl border border-[#e7d9b3] bg-[#fff9ea] p-3 text-sm text-[#7a5a13]">
+                        <div className="border-l-4 border-[#efbe53] pl-3 text-[#7a5a13]">
                           <p className="text-xs font-black uppercase tracking-[0.14em]">Admin Notes</p>
-                          <p className="mt-2">{report.adminNotes}</p>
+                          <p className="mt-1">{report.adminNotes}</p>
                         </div>
                       )}
 
@@ -166,7 +162,7 @@ export default function ReportsPage() {
                       )}
                     </div>
 
-                    <div className="overflow-hidden rounded-xl border border-[#e4ece6] bg-[#f6faf7]">
+                    <div className="overflow-hidden rounded-xl border border-[#e4ece6] bg-[#f6faf7] lg:max-h-40">
                       <Image
                         loader={passthroughLoader}
                         src={report.imageUrl}

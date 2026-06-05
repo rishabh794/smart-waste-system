@@ -14,13 +14,16 @@ export default function Home() {
               Coordinated Waste Collection
             </h1>
             <p className="section-subtitle max-w-xl">
-              Plan routes, monitor bins, and track collection progress in one unified control
-              system for administrators and drivers.
+              Citizens report bin issues, drivers complete collection routes, and administrators
+              coordinate the entire operation from one unified platform.
             </p>
 
             <div className="mt-7 flex flex-wrap gap-3">
-              <Link href="/login" className="btn-primary">
-                Open Dashboard
+              <Link href="/signup" className="btn-primary">
+                Report an Issue
+              </Link>
+              <Link href="/login/staff" className="btn-secondary">
+                Staff Login
               </Link>
               <a href="#steps" className="btn-secondary">
                 View Workflow
@@ -146,10 +149,17 @@ export default function Home() {
             <h2 className="section-title mt-3">Built For Operational Teams, Not Generic Dashboards</h2>
             <p className="section-subtitle max-w-lg">
               The system is structured around dispatch, collection, and closure loops with role-based
-              interfaces for admin and drivers.
+              interfaces for citizens, drivers, and administrators.
             </p>
 
             <div className="mt-8 space-y-5 border-l-2 border-[#dfe9e3] pl-5" id="steps">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.15em] text-[#197443]">For Citizens</p>
+                <h3 className="mt-1 text-lg font-extrabold text-[#1d3025]">Create A Free Account To Report Issues</h3>
+                <p className="mt-1 text-sm text-[#5e7066]">
+                  Citizens sign up themselves. Staff accounts are created by an administrator.
+                </p>
+              </div>
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.15em] text-[#197443]">Step 01</p>
                 <h3 className="mt-1 text-lg font-extrabold text-[#1d3025]">Select Bins And Assign Driver</h3>
@@ -238,9 +248,14 @@ export default function Home() {
             <p className="text-xs font-black uppercase tracking-[0.17em] text-[#f0c765]">Get Started</p>
             <h3 className="mt-2 text-3xl font-extrabold">Launch Your Waste Operations Control Center</h3>
           </div>
-          <Link href="/login" className="btn-primary">
-            Login To Continue
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/login/citizen" className="btn-secondary">
+              Citizen Login
+            </Link>
+            <Link href="/login/staff" className="btn-primary">
+              Staff Login
+            </Link>
+          </div>
         </div>
       </section>
     </main>

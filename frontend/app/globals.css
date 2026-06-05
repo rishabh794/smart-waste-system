@@ -66,9 +66,26 @@ a {
 }
 
 .page-shell {
-  padding-top: 2rem;
-  padding-bottom: 4rem;
+  padding-top: 1.25rem;
+  padding-bottom: 2rem;
   background: linear-gradient(180deg, rgba(236, 247, 240, 0.55) 0%, rgba(248, 252, 249, 0) 30%);
+}
+
+@media (min-width: 640px) {
+  .page-shell {
+    padding-top: 2rem;
+    padding-bottom: 4rem;
+  }
+}
+
+.app-main {
+  padding-bottom: 0;
+}
+
+@media (max-width: 1023px) {
+  .app-main:has(+ nav[aria-label="Quick navigation"]) {
+    padding-bottom: 4.75rem;
+  }
 }
 
 .soft-surface {

@@ -5,31 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { toast } from "sonner";
-
-const publicLinks = [
-  { href: "/", label: "Home" },
-  { href: "/#features", label: "Features" },
-  { href: "/#steps", label: "Steps" },
-  { href: "/#contact", label: "Contact" },
-];
-
-const adminLinks = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/status", label: "Status" },
-  { href: "/create", label: "Create" },
-  { href: "/admin/driver-stats", label: "Driver Stats" },
-];
-
-const driverLinks = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/driver/stats", label: "My Stats" },
-];
-
-const citizenLinks = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/report", label: "Report Issue" },
-  { href: "/reports", label: "My Reports" },
-];
+import MobileNavDrawer from "@/components/navigation/MobileNavDrawer";
+import { getNavLinksForRole } from "@/lib/navigationLinks";
+import { getRoleLabel } from "@/lib/roles";
 
 export default function UniversalNavbar() {
   const { data: session, status } = useSession();
@@ -37,20 +15,18 @@ export default function UniversalNavbar() {
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const stableSession = isMounted && status !== "loading" ? session : null;
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
-  const navLinks = stableSession?.user?.role === "admin"
-    ? adminLinks
-    : stableSession?.user?.role === "driver"
-      ? driverLinks
-      : stableSession?.user?.role === "user"
-        ? citizenLinks
-        : publicLinks;
+  const stableSession = isMounted && status !== "loading" ? session : null;
+  const navLinks = getNavLinksForRole(stableSession?.user?.role);
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -80,51 +56,88 @@ export default function UniversalNavbar() {
     }`;
   };
 
+  const sessionLabel = stableSession
+    ? `Logged in as ${stableSession.user?.name} (${getRoleLabel(stableSession.user?.role)})`
+    : undefined;
+
   return (
-    <header className="sticky top-0 z-50 border-b border-[#d9e7de] bg-[#f8fcf9]/95 shadow-sm backdrop-blur">
-      <div className="site-container">
-        <div className="flex min-h-18 items-center justify-between gap-5">
-          <div className="min-w-0">
-            <Link href="/" className="inline-flex items-center gap-2 text-2xl font-extrabold leading-none tracking-tight text-[#1a2a22]">
-              <PlatformIcon />
-              <span>SmartWaste.</span>
-            </Link>
-            <p className="mt-1 hidden text-xs font-medium text-[#607268] sm:block">
-              {stableSession
-                ? `Logged in as ${stableSession.user?.name} (${stableSession.user?.role})`
-                : "Smart Waste Tracking And Route Coordination"}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <nav className="hidden items-center gap-4 lg:flex">
-              {navLinks.map((link) => (
-                <Link key={link.href} href={link.href} className={linkClass(link.href)}>
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-
-            {!stableSession ? (
-              <Link
-                href="/login"
-                className="btn-primary"
-              >
-                Login
+    <>
+      <header className="sticky top-0 z-50 border-b border-[#d9e7de] bg-[#f8fcf9]/95 shadow-sm backdrop-blur">
+        <div className="site-container">
+          <div className="flex min-h-16 items-center justify-between gap-3 sm:min-h-18 sm:gap-5">
+            <div className="min-w-0">
+              <Link href="/" className="inline-flex items-center gap-2 text-xl font-extrabold leading-none tracking-tight text-[#1a2a22] sm:text-2xl">
+                <PlatformIcon />
+                <span>SmartWaste.</span>
               </Link>
-            ) : (
+              <p className="mt-1 hidden text-xs font-medium text-[#607268] sm:block">
+                {stableSession
+                  ? sessionLabel
+                  : "Smart Waste Tracking And Route Coordination"}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <nav className="hidden items-center gap-4 lg:flex">
+                {navLinks.map((link) => (
+                  <Link key={link.href} href={link.href} className={linkClass(link.href)}>
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
+
+              {!stableSession ? (
+                <div className="hidden items-center gap-2 sm:flex">
+                  <Link href="/login/citizen" className="btn-secondary">
+                    Citizen Login
+                  </Link>
+                  <Link href="/login/staff" className="btn-primary">
+                    Staff Login
+                  </Link>
+                </div>
+              ) : (
+                <button
+                  onClick={handleSignOut}
+                  disabled={isSigningOut}
+                  className="btn-secondary btn-signout hidden sm:inline-flex disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSigningOut ? "Signing Out..." : "Sign Out"}
+                </button>
+              )}
+
               <button
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-                className="btn-secondary btn-signout"
+                type="button"
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#d5e3da] text-[#4f6158] transition hover:bg-[#edf5ef] lg:hidden"
+                aria-label="Open navigation menu"
+                aria-expanded={isMobileMenuOpen}
               >
-                {isSigningOut ? "Signing Out..." : "Sign Out"}
+                <MenuIcon />
               </button>
-            )}
+            </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      <MobileNavDrawer
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        links={navLinks}
+        pathname={pathname}
+        sessionLabel={sessionLabel}
+        onSignOut={stableSession ? handleSignOut : undefined}
+        isSigningOut={isSigningOut}
+        showAuthActions={!stableSession}
+      />
+    </>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
+      <path d="M4 6H16M4 10H16M4 14H16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   );
 }
 

@@ -250,20 +250,20 @@ export default function DriverStats({ driverId }: { driverId: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="soft-surface flex flex-col items-center justify-center rounded-xl border-[#dce9e1] bg-[#fcfffd] p-4 text-center">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        <div className="soft-surface rounded-xl p-4 text-center">
           <span className="text-sm font-semibold text-[#597064]">Routes Completed</span>
-          <span className="mt-1 text-3xl font-black text-[#1f412f]">{data.totalRoutesCompleted}</span>
+          <span className="mt-1 block text-3xl font-black text-[#1f412f]">{data.totalRoutesCompleted}</span>
           <span className="mt-1 text-xs text-[#7d9187]">Lifetime</span>
         </div>
         
-        <div className="soft-surface flex flex-col items-center justify-center rounded-xl border-[#dce9e1] bg-[#fcfffd] p-4 text-center">
+        <div className="soft-surface rounded-xl p-4 text-center">
           <span className="text-sm font-semibold text-[#597064]">Stops Addressed</span>
-          <span className="mt-1 text-3xl font-black text-[#197443]">{data.binHealth.total}</span>
+          <span className="mt-1 block text-3xl font-black text-[#197443]">{data.binHealth.total}</span>
           <span className="mt-1 text-xs text-[#7d9187]">Lifetime</span>
         </div>
 
-        <div className="soft-surface rounded-xl border-[#dce9e1] bg-[#fcfffd] p-4">
+        <div className="soft-surface rounded-xl p-4 sm:col-span-1">
           <div className="flex items-start justify-between gap-2">
             <div className="text-sm font-semibold text-[#597064]">Overflow Ratio</div>
             <span className={`rounded-full border px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] ${overflowBadgeClassName}`}>
@@ -283,16 +283,16 @@ export default function DriverStats({ driverId }: { driverId: string }) {
         </div>
       </div>
 
-      <div className="soft-surface rounded-xl border-[#dce9e1] bg-[#fcfffd] p-5">
-        <h3 className="mb-4 font-extrabold text-[#1f412f]">Route Health (Addressed Outcomes)</h3>
-        <div className="grid gap-4 lg:grid-cols-[290px_1fr] lg:items-center">
-          <div className="h-48 w-full min-w-0">
-            <ResponsiveContainer width="100%" height={192} minWidth={0}>
+      <div className="soft-surface rounded-xl p-4 sm:p-5">
+        <h3 className="font-extrabold text-[#1f412f]">Route Health (Addressed Outcomes)</h3>
+        <div className="mt-4 grid gap-5 lg:grid-cols-[240px_1fr] lg:items-center">
+          <div className="mx-auto h-44 w-full max-w-[240px] min-w-0">
+            <ResponsiveContainer width="100%" height={176} minWidth={0}>
               <PieChart>
                 <Pie
                   data={pieData}
-                  innerRadius={60}
-                  outerRadius={80}
+                  innerRadius={52}
+                  outerRadius={72}
                   paddingAngle={5}
                   dataKey="value"
                   stroke="none"
@@ -309,41 +309,27 @@ export default function DriverStats({ driverId }: { driverId: string }) {
             </ResponsiveContainer>
           </div>
 
-          <div className="space-y-3">
-            <div className="rounded-xl border border-[#dce9e1] bg-[#f8fcf9] p-3">
-              <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#607267]">Collected (No Overflow)</div>
-              <div className="mt-1 text-2xl font-extrabold text-[#1f412f]">{collectedWithoutOverflow}</div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="border-t-4 border-[#197443] pt-3">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#607267]">No Overflow</p>
+              <p className="mt-1 text-2xl font-extrabold text-[#1f412f]">{collectedWithoutOverflow}</p>
             </div>
-            <div className="rounded-xl border border-[#edd0cd] bg-[#fff6f5] p-3">
-              <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#8e4d48]">Collected (Overflow Observed)</div>
-              <div className="mt-1 text-2xl font-extrabold text-[#8b2d28]">{data.binHealth.overflowing}</div>
+            <div className="border-t-4 border-[#c5483e] pt-3">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#8e4d48]">Overflow</p>
+              <p className="mt-1 text-2xl font-extrabold text-[#8b2d28]">{data.binHealth.overflowing}</p>
             </div>
-            <div className="rounded-xl border border-[#f0dcbb] bg-[#fff8ec] p-3">
-              <div className="text-xs font-bold uppercase tracking-[0.12em] text-[#8a5b24]">Skipped (Missed)</div>
-              <div className="mt-1 text-2xl font-extrabold text-[#8a5b24]">{data.binHealth.missed}</div>
+            <div className="border-t-4 border-[#d0832f] pt-3">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#8a5b24]">Skipped</p>
+              <p className="mt-1 text-2xl font-extrabold text-[#8a5b24]">{data.binHealth.missed}</p>
             </div>
-            <p className="text-sm text-[#607267]">
-              Overflow ratio is currently <span className="font-extrabold text-[#1f412f]">{overflowRatio}%</span> of collected stops.
-            </p>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap justify-center gap-6 text-sm font-semibold text-[#56695d]">
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-[#197443]"></div>
-            Collected (No Overflow) ({collectedWithoutOverflow})
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-[#c5483e]"></div>
-            Collected (Overflow Observed) ({data.binHealth.overflowing})
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-[#d0832f]"></div>
-            Skipped (Missed) ({data.binHealth.missed})
-          </div>
-        </div>
+        <p className="mt-4 text-sm text-[#607267]">
+          Overflow ratio is <span className="font-extrabold text-[#1f412f]">{overflowRatio}%</span> of collected stops.
+        </p>
       </div>
 
-      <div className="soft-surface rounded-xl border-[#dce9e1] bg-[#fcfffd] p-5">
+      <div className="soft-surface rounded-xl p-4 sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-extrabold text-[#1f412f]">Weekly Velocity Trend</h3>
