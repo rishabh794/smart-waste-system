@@ -12,6 +12,7 @@ interface MobileNavDrawerProps {
   sessionLabel?: string;
   onSignOut?: () => void;
   isSigningOut?: boolean;
+  isSessionLoading?: boolean;
   showAuthActions?: boolean;
 }
 
@@ -28,6 +29,7 @@ export default function MobileNavDrawer({
   sessionLabel,
   onSignOut,
   isSigningOut = false,
+  isSessionLoading = false,
   showAuthActions = false,
 }: MobileNavDrawerProps) {
   useEffect(() => {
@@ -65,35 +67,47 @@ export default function MobileNavDrawer({
           </button>
         </div>
 
-        {sessionLabel ? (
+        {isSessionLoading ? (
+          <div className="border-b border-[#e5ede7] px-4 py-3">
+            <span className="inline-block h-3 w-48 animate-pulse rounded bg-[#e6efe9]" />
+          </div>
+        ) : sessionLabel ? (
           <p className="border-b border-[#e5ede7] px-4 py-3 text-xs font-medium text-[#607268]">
             {sessionLabel}
           </p>
         ) : null}
 
         <ul className="flex-1 space-y-1 overflow-y-auto p-3">
-          {links.map((link) => {
-            const active = isLinkActive(pathname, link.href);
-            return (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  onClick={onClose}
-                  className={`block rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
-                    active
-                      ? "bg-[#e8f5ed] text-[#197443]"
-                      : "text-[#4f6158] hover:bg-[#f1f8f3] hover:text-[#197443]"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            );
-          })}
+          {isSessionLoading
+            ? Array.from({ length: 3 }).map((_, index) => (
+                <li key={index}>
+                  <span className="block h-10 animate-pulse rounded-lg bg-[#e6efe9]" />
+                </li>
+              ))
+            : links.map((link) => {
+                const active = isLinkActive(pathname, link.href);
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      onClick={onClose}
+                      className={`block rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+                        active
+                          ? "bg-[#e8f5ed] text-[#197443]"
+                          : "text-[#4f6158] hover:bg-[#f1f8f3] hover:text-[#197443]"
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
         </ul>
 
         <div className="space-y-2 border-t border-[#e5ede7] p-3">
-          {showAuthActions ? (
+          {isSessionLoading ? (
+            <span className="block h-10 w-full animate-pulse rounded-md bg-[#e6efe9]" />
+          ) : showAuthActions ? (
             <>
               <Link href="/login/citizen" onClick={onClose} className="btn-secondary block w-full text-center">
                 Citizen Login

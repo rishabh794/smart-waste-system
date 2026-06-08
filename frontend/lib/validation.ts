@@ -109,6 +109,8 @@ export const reportFormSchema = z.object({
   binId: uuidSchema.optional().or(z.literal('')),
 });
 
+export const reportFormWithLocalPhotoSchema = reportFormSchema.omit({ imageUrl: true });
+
 export const getValidationErrorMessage = (error: z.ZodError) => {
   return error.issues[0]?.message ?? 'Invalid form input.';
 };

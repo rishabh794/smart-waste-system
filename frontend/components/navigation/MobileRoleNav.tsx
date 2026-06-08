@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useNetworkStatus } from "@/components/offline/NetworkStatusProvider";
 import { getNavLinksForRole, hasMobileRoleNav } from "@/lib/navigationLinks";
 
 const isLinkActive = (pathname: string, href: string) =>
@@ -12,6 +13,7 @@ export default function MobileRoleNav() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const role = session?.user?.role;
+  const { isOnline, pendingCount } = useNetworkStatus();
 
   if (!hasMobileRoleNav(role)) {
     return null;
@@ -24,6 +26,16 @@ export default function MobileRoleNav() {
       aria-label="Quick navigation"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-[#d9e7de] bg-[#f8fcf9]/95 backdrop-blur lg:hidden"
     >
+      {(!isOnline || pendingCount > 0) && (
+        <div className="flex items-center justify-center gap-2 border-b border-[#e6efe9] px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-[#5f7167]">
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${isOnline ? "bg-[#1a7b3a]" : "bg-[#d97706]"}`}
+            aria-hidden="true"
+          />
+          {!isOnline ? "Offline mode" : "Online"}
+          {pendingCount > 0 && <span className="text-[#197443]">{pendingCount} pending</span>}
+        </div>
+      )}
       <ul className="mx-auto flex max-w-lg items-stretch justify-around px-2 py-2">
         {links.map((link) => {
           const active = isLinkActive(pathname, link.href);

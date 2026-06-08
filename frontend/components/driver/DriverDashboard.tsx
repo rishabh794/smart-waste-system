@@ -7,17 +7,22 @@ import useSWR from 'swr';
 import DataLoadingState from "@/components/ui/DataLoadingState";
 import DriverNoRouteMessage from "@/components/driver/sections/DriverNoRouteMessage";
 import DriverRoutePanel from "@/components/driver/sections/DriverRoutePanel";
+import { useNetworkStatus } from "@/components/offline/NetworkStatusProvider";
+import { OFFLINE_SYNC_COMPLETE_EVENT } from "@/lib/offline/events";
+import { isNetworkError } from "@/lib/offline/network";
+import { enqueueBinStatus, enqueueRouteComplete } from "@/lib/offline/queue";
 import { getApiErrorMessage } from "@/lib/services/apiService";
 import {
-  cacheRouteGeometry,
   completeDriverRoute,
   DEPOT_COORDS,
   DRIVER_ROUTE_DEDUPING_INTERVAL_MS,
   fetchDriverRoute,
   getCachedRouteGeometry,
   getDriverRouteKey,
+  hydrateRouteGeometryFromSnapshot,
   mergeCachedOrder,
   optimizeRouteGeometry,
+  persistRouteGeometrySnapshot,
   sortBinsBySequence,
   updateDriverBinStatus,
 } from "@/lib/services/driverService";
@@ -35,6 +40,7 @@ const DriverMap = dynamic(() => import('./DriverMap'), {
 });
 
 export default function DriverDashboard({ userId }: { userId: string }) {
+  const { isOnline } = useNetworkStatus();
   // SWR key scoped to the current driver session.
   const routeKey = getDriverRouteKey(userId);
 
@@ -48,7 +54,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
   } = useSWR<RouteData | null>(routeKey, fetchDriverRoute, {
     keepPreviousData: true,
     revalidateOnFocus: false,
-    revalidateOnReconnect: false,
+    revalidateOnReconnect: true,
     dedupingInterval: DRIVER_ROUTE_DEDUPING_INTERVAL_MS,
   });
 
@@ -77,7 +83,11 @@ export default function DriverDashboard({ userId }: { userId: string }) {
         return;
       }
 
-      const cachedGeometry = getCachedRouteGeometry(cachedRoute.routeId);
+      const cachedGeometry =
+        getCachedRouteGeometry(cachedRoute.routeId) ??
+        (await hydrateRouteGeometryFromSnapshot(cachedRoute.routeId)) ??
+        undefined;
+
       if (cachedGeometry) {
         const orderedBins = mergeCachedOrder(cachedRoute.bins, cachedGeometry.bins);
         if (isCancelled) return;
@@ -97,7 +107,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       const optimizedRoute = await optimizeRouteGeometry(cachedRoute);
       if (isCancelled) return;
 
-      cacheRouteGeometry(cachedRoute.routeId, optimizedRoute);
+      await persistRouteGeometrySnapshot(userId, cachedRoute, optimizedRoute);
       setDisplayRoute({ ...cachedRoute, bins: optimizedRoute.bins });
       setRoutePath(optimizedRoute.routePath);
       setPreservedMap(optimizedRoute);
@@ -108,12 +118,21 @@ export default function DriverDashboard({ userId }: { userId: string }) {
     return () => {
       isCancelled = true;
     };
-  }, [cachedRoute, isValidating]);
+  }, [cachedRoute, isValidating, userId]);
 
   // useEffect: reset completion confirmation whenever route context changes.
   useEffect(() => {
     setIsConfirmingComplete(false);
   }, [displayRoute?.routeId]);
+
+  useEffect(() => {
+    const handleOfflineSyncComplete = () => {
+      void mutateDriverRoute();
+    };
+
+    window.addEventListener(OFFLINE_SYNC_COMPLETE_EVENT, handleOfflineSyncComplete);
+    return () => window.removeEventListener(OFFLINE_SYNC_COMPLETE_EVENT, handleOfflineSyncComplete);
+  }, [mutateDriverRoute]);
 
   const updateBinStatus = async (
     binId: string,
@@ -137,38 +156,77 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       missedNote: options?.missedNote,
     });
 
+    const buildUpdatedRoute = (currentRoute: RouteData | null | undefined) => {
+      if (!currentRoute || currentRoute.routeId !== activeRouteId) {
+        return currentRoute ?? null;
+      }
+
+      return {
+        ...currentRoute,
+        bins: currentRoute.bins.map((bin) =>
+          bin.binId === binId
+            ? {
+                ...bin,
+                status: newStatus,
+                wasOverflowing: newStatus === "collected" ? Boolean(options?.wasOverflowing) : false,
+              }
+            : bin
+        ),
+      };
+    };
+
+    let optimisticRoute: RouteData | null = null;
+
     // SWR optimistic cache update for instant UI feedback.
     await mutateDriverRoute(
       (currentRoute) => {
-        if (!currentRoute || currentRoute.routeId !== activeRouteId) {
-          return currentRoute;
-        }
-
-        return {
-          ...currentRoute,
-          bins: currentRoute.bins.map((bin) =>
-            bin.binId === binId
-              ? {
-                  ...bin,
-                  status: newStatus,
-                  wasOverflowing: newStatus === "collected" ? Boolean(options?.wasOverflowing) : false,
-                }
-              : bin
-          ),
-        };
+        optimisticRoute = buildUpdatedRoute(currentRoute) ?? null;
+        return optimisticRoute;
       },
       { revalidate: false, populateCache: true }
     );
 
+    const persistOptimisticSnapshot = async () => {
+      if (!optimisticRoute) return;
+      await persistRouteGeometrySnapshot(userId, optimisticRoute, {
+        bins: optimisticRoute.bins,
+        routePath: routePath.length > 0 ? routePath : (preservedMap?.routePath ?? []),
+      });
+    };
+
+    const queueOfflineBinUpdate = async () => {
+      await enqueueBinStatus({
+        routeId: activeRouteId,
+        binId,
+        status: newStatus,
+        options,
+      });
+      await persistOptimisticSnapshot();
+      toast.info("Update saved offline — will sync when online.");
+    };
+
+    if (!isOnline) {
+      await queueOfflineBinUpdate();
+      setBinStatusUpdate(null);
+      return;
+    }
+
     try {
-      // API call: persist bin status update.
       const res = await updateDriverBinStatus(activeRouteId, binId, newStatus, options);
 
       if (!res.ok) {
         await mutateDriverRoute(previousRouteSnapshot, { revalidate: false, populateCache: true });
-        toast.error(await getApiErrorMessage(res, 'Unable to update bin status.'));
+        toast.error(await getApiErrorMessage(res, "Unable to update bin status."));
+        return;
       }
+
+      await persistOptimisticSnapshot();
     } catch (error) {
+      if (!isOnline || isNetworkError(error)) {
+        await queueOfflineBinUpdate();
+        return;
+      }
+
       await mutateDriverRoute(previousRouteSnapshot, { revalidate: false, populateCache: true });
       console.error("Network error:", error);
       toast.error("Network issue while updating bin status. Please try again.");
@@ -182,28 +240,46 @@ export default function DriverDashboard({ userId }: { userId: string }) {
 
     const activeRouteId = displayRoute.routeId;
 
+    const clearCompletedRoute = async () => {
+      setIsConfirmingComplete(false);
+      await mutateDriverRoute(
+        (currentRoute) => {
+          if (!currentRoute || currentRoute.routeId !== activeRouteId) {
+            return currentRoute;
+          }
+          return null;
+        },
+        { revalidate: false, populateCache: true }
+      );
+    };
+
     try {
       setIsCompletingRoute(true);
-      // API call: mark the active route as completed.
+
+      if (!isOnline) {
+        await enqueueRouteComplete(activeRouteId);
+        await clearCompletedRoute();
+        toast.info("Route completion saved offline — will sync when online.");
+        return;
+      }
+
       const res = await completeDriverRoute(activeRouteId);
-      
+
       if (res.ok) {
         toast.success("Route marked as completed.");
-        setIsConfirmingComplete(false);
-        // SWR cache update: remove completed route without refetch.
-        await mutateDriverRoute(
-          (currentRoute) => {
-            if (!currentRoute || currentRoute.routeId !== activeRouteId) {
-              return currentRoute;
-            }
-            return null;
-          },
-          { revalidate: false, populateCache: true }
-        );
-      } else {
-        toast.error(await getApiErrorMessage(res, "Unable to complete route right now."));
+        await clearCompletedRoute();
+        return;
       }
+
+      toast.error(await getApiErrorMessage(res, "Unable to complete route right now."));
     } catch (error) {
+      if (!isOnline || isNetworkError(error)) {
+        await enqueueRouteComplete(activeRouteId);
+        await clearCompletedRoute();
+        toast.info("Route completion saved offline — will sync when online.");
+        return;
+      }
+
       console.error(error);
       toast.error("Network issue while completing route. Please try again.");
     } finally {
