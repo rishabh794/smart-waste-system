@@ -36,3 +36,8 @@ export interface CreateReportPayload {
   address?: string;
   binId?: string;
 }
+
+export interface AdminReport extends CitizenReport {
+  reportedBy: string;
+  reporterEmail: string;
+}

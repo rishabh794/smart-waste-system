@@ -12,6 +12,7 @@ const publicResourceLinks = [
 const adminResourceLinks = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Route Status", href: "/status" },
+  { label: "Issue Reports", href: "/admin/reports" },
   { label: "Create Assets", href: "/create" },
 ];
 

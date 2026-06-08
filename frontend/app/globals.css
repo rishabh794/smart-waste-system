@@ -162,6 +162,12 @@ a {
   box-shadow: 0 0 0 3px rgba(25, 116, 67, 0.12);
 }
 
+textarea.input-clean {
+  resize: vertical;
+  font: inherit;
+  line-height: 1.5;
+}
+
 .select-clean {
   width: 100%;
   appearance: none;

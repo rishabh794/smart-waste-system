@@ -335,13 +335,17 @@ export default function ReportIssuePage() {
                         <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-[#5f7167]">
                           Latitude
                         </label>
-                        <input className="input-clean" value={formState.latitude} readOnly />
+                        <div className="input-clean text-[#2f3d33]">
+                          {formState.latitude || "—"}
+                        </div>
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-[#5f7167]">
                           Longitude
                         </label>
-                        <input className="input-clean" value={formState.longitude} readOnly />
+                        <div className="input-clean text-[#2f3d33]">
+                          {formState.longitude || "—"}
+                        </div>
                       </div>
                     </div>
                   )}

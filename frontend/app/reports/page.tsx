@@ -7,37 +7,8 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import DataLoadingState from "@/components/ui/DataLoadingState";
 import DashboardPageHeader from "@/components/ui/DashboardPageHeader";
 import { fetchMyReports, USER_REPORTS_KEY } from "@/lib/services/reportService";
-import type { CitizenReport, ReportStatus } from "@/types/CitizenTypes";
-
-const STATUS_STYLES: Record<ReportStatus, { label: string; className: string }> = {
-  submitted: {
-    label: "Submitted",
-    className: "border-[#ecd9a8] bg-[#fff7e4] text-[#7d5a13]",
-  },
-  in_review: {
-    label: "In Review",
-    className: "border-[#b8d6f2] bg-[#e9f2fb] text-[#1d4d7a]",
-  },
-  resolved: {
-    label: "Resolved",
-    className: "border-[#b6e2c4] bg-[#e9f7ee] text-[#1a6a3a]",
-  },
-  rejected: {
-    label: "Rejected",
-    className: "border-[#f1c1c1] bg-[#fff1f1] text-[#9b2c2c]",
-  },
-};
-
-const formatDateTime = (value?: string | null) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
-};
-
-const formatCategory = (value: CitizenReport["category"]) => {
-  return value.replace(/_/g, " ");
-};
+import { formatReportCategory, formatReportDateTime, STATUS_STYLES } from "@/lib/reportDisplay";
+import type { CitizenReport } from "@/types/CitizenTypes";
 
 const passthroughLoader: ImageLoader = ({ src }) => src;
 
@@ -115,20 +86,20 @@ export default function ReportsPage() {
                         </span>
                       </div>
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#1a7b3a]">
-                        {formatCategory(report.category)}
+                        {formatReportCategory(report.category)}
                       </p>
                       <p className="text-sm text-[#5f7167]">{report.description}</p>
                     </div>
 
                     <div className="text-xs text-[#607267]">
                       <p>
-                        <span className="font-semibold text-[#2d3f36]">Submitted:</span> {formatDateTime(report.createdAt)}
+                        <span className="font-semibold text-[#2d3f36]">Submitted:</span> {formatReportDateTime(report.createdAt)}
                       </p>
                       <p>
-                        <span className="font-semibold text-[#2d3f36]">Updated:</span> {formatDateTime(report.updatedAt)}
+                        <span className="font-semibold text-[#2d3f36]">Updated:</span> {formatReportDateTime(report.updatedAt)}
                       </p>
                       <p>
-                        <span className="font-semibold text-[#2d3f36]">Resolved:</span> {formatDateTime(report.resolvedAt)}
+                        <span className="font-semibold text-[#2d3f36]">Resolved:</span> {formatReportDateTime(report.resolvedAt)}
                       </p>
                     </div>
                   </div>
