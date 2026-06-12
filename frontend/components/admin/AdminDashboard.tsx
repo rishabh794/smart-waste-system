@@ -47,7 +47,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
   const [isCreatingRoute, setIsCreatingRoute] = useState(false);
   const [isAddingBin, setIsAddingBin] = useState(false);
   const [isAddingDriver, setIsAddingDriver] = useState(false);
-  const [updatingBinId, setUpdatingBinId] = useState<string | null>(null);
+  const [isUpdatingBins, setIsUpdatingBins] = useState(false);
   // useRef: keep dropdown root for outside-click detection.
   const driverMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -200,45 +200,44 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     }
   };
 
-  const handleUpdateBinConditionStatus = async (binId: string, status: BinConditionStatus) => {
-    if (updatingBinId) return;
 
-    const targetBin = bins.find((bin) => bin.id === binId);
-    if (!targetBin) {
-      toast.error("Unable to locate the selected bin.");
-      return;
-    }
+  const handleUpdateSelectedBinsConditionStatus = async (status: BinConditionStatus) => {
+    if (isUpdatingBins || selectedBins.length === 0) return;
 
-    if (normalizeConditionStatus(targetBin.conditionStatus) === status) {
-      return;
-    }
-
-    if (targetBin.status === "ASSIGNED_TODAY") {
-      toast.warning("Bin condition cannot be changed while it is ON ROUTE.");
-      return;
-    }
-
-    setUpdatingBinId(binId);
+    setIsUpdatingBins(true);
+    let successCount = 0;
+    let errorCount = 0;
 
     try {
-      const res = await updateBinConditionStatus(binId, { status });
+      await Promise.all(
+        selectedBins.map(async (binId) => {
+          const targetBin = bins.find((bin) => bin.id === binId);
+          if (!targetBin || targetBin.status === "ASSIGNED_TODAY" || normalizeConditionStatus(targetBin.conditionStatus) === status) {
+            return; // Skip invalid or already correct bins
+          }
+          const res = await updateBinConditionStatus(binId, { status });
+          if (res.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        })
+      );
 
-      if (res.ok) {
-        toast.success(`Bin status updated to ${status}.`);
-
-        if (status !== "active") {
-          setSelectedBins((currentSelection) => currentSelection.filter((selectedBinId) => selectedBinId !== binId));
-        }
-
-        await mutateBins();
-      } else {
-        toast.error(await getApiErrorMessage(res, "Unable to update bin status right now."));
+      if (successCount > 0) {
+        toast.success(`Successfully updated ${successCount} bin(s) to ${status}.`);
       }
+      if (errorCount > 0) {
+        toast.error(`Failed to update ${errorCount} bin(s).`);
+      }
+
+      setSelectedBins([]); // Clear selection after bulk update
+      await mutateBins();
     } catch (error) {
       console.error(error);
-      toast.error("Network issue while updating bin status. Please try again.");
+      toast.error("Network issue while updating bin statuses. Please try again.");
     } finally {
-      setUpdatingBinId(null);
+      setIsUpdatingBins(false);
     }
   };
 
@@ -299,13 +298,13 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
               selectedDriverName={selectedDriverName}
               isDriverMenuOpen={isDriverMenuOpen}
               isCreatingRoute={isCreatingRoute}
-              updatingBinId={updatingBinId}
+              isUpdatingBins={isUpdatingBins}
               driverMenuRef={driverMenuRef}
               onToggleDriverMenu={() => setIsDriverMenuOpen((currentState) => !currentState)}
               onToggleBinSelection={toggleBinSelection}
               onSelectDriver={handleDriverSelection}
               onCreateRoute={handleCreateRoute}
-              onUpdateBinConditionStatus={handleUpdateBinConditionStatus}
+              onUpdateSelectedBinsConditionStatus={handleUpdateSelectedBinsConditionStatus}
             />
           )}
         </>

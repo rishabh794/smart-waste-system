@@ -23,13 +23,13 @@ interface AdminDashboardContentProps {
   selectedDriverName: string;
   isDriverMenuOpen: boolean;
   isCreatingRoute: boolean;
-  updatingBinId: string | null;
+  isUpdatingBins: boolean;
   driverMenuRef: RefObject<HTMLDivElement | null>;
   onToggleDriverMenu: () => void;
   onToggleBinSelection: (binId: string) => void;
   onSelectDriver: (driverId: string) => void;
   onCreateRoute: () => void;
-  onUpdateBinConditionStatus: (binId: string, status: BinConditionStatus) => void;
+  onUpdateSelectedBinsConditionStatus: (status: BinConditionStatus) => void;
 }
 
 const getRouteStatusMeta = (bin: Bin) => {
@@ -105,29 +105,15 @@ export default function AdminDashboardContent({
   selectedDriverName,
   isDriverMenuOpen,
   isCreatingRoute,
-  updatingBinId,
+  isUpdatingBins,
   driverMenuRef,
   onToggleDriverMenu,
   onToggleBinSelection,
   onSelectDriver,
   onCreateRoute,
-  onUpdateBinConditionStatus,
+  onUpdateSelectedBinsConditionStatus,
 }: AdminDashboardContentProps) {
-  const [openConditionMenuBinId, setOpenConditionMenuBinId] = useState<string | null>(null);
-  const conditionMenuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!conditionMenuRef.current) return;
-      if (conditionMenuRef.current.contains(event.target as Node)) return;
-      setOpenConditionMenuBinId(null);
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
-  }, []);
+  // We no longer need local state for individual condition menus.
 
   const binSections: Array<{
     key: "active" | "maintenance" | "retired";
@@ -189,13 +175,7 @@ export default function AdminDashboardContent({
                     ) : (
                       section.bins.map((bin) => {
                         const routeMeta = getRouteStatusMeta(bin);
-                        const isActiveSection = section.key === "active";
-                        const isAssignable = isActiveSection && bin.status !== "ASSIGNED_TODAY";
-                        const conditionStatus = normalizeConditionStatus(bin.conditionStatus);
-                        const isUpdatingThisBin = updatingBinId === bin.id;
-                        const isConditionMenuOpen = openConditionMenuBinId === bin.id;
                         const isOnRoute = bin.status === "ASSIGNED_TODAY";
-                        const isConditionChangeLocked = Boolean(updatingBinId) || isOnRoute;
 
                         return (
                           <li
@@ -203,13 +183,12 @@ export default function AdminDashboardContent({
                             className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 text-sm odd:bg-[#fcfffd] even:bg-[#f6fbf8]"
                           >
                             <div>
-                              {isActiveSection ? (
+                              {!isOnRoute ? (
                                 <input
                                   type="checkbox"
                                   className="mr-3 accent-[#1a7b3a]"
                                   checked={selectedBins.includes(bin.id)}
                                   onChange={() => onToggleBinSelection(bin.id)}
-                                  disabled={!isAssignable}
                                 />
                               ) : (
                                 <span className="mr-3 inline-flex rounded-full border border-[#d8dfdb] bg-[#f2f6f3] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6b7c72]">
@@ -229,56 +208,6 @@ export default function AdminDashboardContent({
                               <span className={`rounded-full px-2 py-1 text-xs font-extrabold uppercase ${routeMeta.classes}`}>
                                 Route: {routeMeta.label}
                               </span>
-                              <div
-                                ref={isConditionMenuOpen ? conditionMenuRef : null}
-                                className="relative min-w-45"
-                              >
-                                <button
-                                  type="button"
-                                  aria-haspopup="listbox"
-                                  aria-expanded={isConditionMenuOpen}
-                                  disabled={isConditionChangeLocked}
-                                  onClick={() =>
-                                    setOpenConditionMenuBinId((currentState) =>
-                                      currentState === bin.id ? null : bin.id
-                                    )
-                                  }
-                                  className={`dropdown-clean py-2 text-xs ${isConditionMenuOpen ? "dropdown-clean-open" : ""} disabled:cursor-not-allowed disabled:opacity-60`}
-                                >
-                                  <span className="font-semibold text-[#1f3b2d]">
-                                    {isOnRoute ? "Condition Locked (ON ROUTE)" : "Change Condition"}
-                                  </span>
-                                  <ChevronIcon open={isConditionMenuOpen} />
-                                </button>
-
-                                {isConditionMenuOpen && !isConditionChangeLocked && (
-                                  <div
-                                    role="listbox"
-                                    className="absolute right-0 z-40 mt-2 w-full overflow-hidden rounded-xl border border-[#bfd5c5] bg-[#f7fcf8] shadow-lg"
-                                  >
-                                    {conditionStatusOptions.map((option) => (
-                                      <button
-                                        key={option.value}
-                                        type="button"
-                                        role="option"
-                                        aria-selected={conditionStatus === option.value}
-                                        className={`dropdown-option ${conditionStatus === option.value ? "dropdown-option-selected" : ""}`}
-                                        onClick={() => {
-                                          setOpenConditionMenuBinId(null);
-                                          onUpdateBinConditionStatus(bin.id, option.value);
-                                        }}
-                                      >
-                                        {option.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                              {isUpdatingThisBin && (
-                                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#557064]">
-                                  Saving...
-                                </span>
-                              )}
                             </div>
                           </li>
                         );
@@ -291,8 +220,9 @@ export default function AdminDashboardContent({
           </div>
         </div>
 
-        <aside className="rounded-2xl border-l-4 border-[#1f8a52] bg-[#f9fcfa] p-5">
-          <h3 className="mb-4 text-lg font-extrabold text-[#1f412f]">Dispatch Route</h3>
+        <aside className="space-y-6">
+          <div className="rounded-2xl border-l-4 border-[#1f8a52] bg-[#f9fcfa] p-5">
+            <h3 className="mb-4 text-lg font-extrabold text-[#1f412f]">Dispatch Route</h3>
 
           <label className="mb-2 block text-sm font-bold text-[#244734]">Select Driver:</label>
           <div ref={driverMenuRef} className="relative mb-4">
@@ -345,17 +275,37 @@ export default function AdminDashboardContent({
             )}
           </div>
 
-          <div className="mb-5 border-y border-[#dde8e0] py-3 text-sm font-semibold text-[#3f5b4b]">
-            Selected Bins: {selectedBins.length}
+            <div className="mb-5 border-y border-[#dde8e0] py-3 text-sm font-semibold text-[#3f5b4b]">
+              Selected Bins: {selectedBins.length}
+            </div>
+
+            <button
+              onClick={onCreateRoute}
+              disabled={isCreatingRoute || selectedBins.length === 0}
+              className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isCreatingRoute ? "Dispatching Route..." : "Dispatch To Driver"}
+            </button>
           </div>
 
-          <button
-            onClick={onCreateRoute}
-            disabled={isCreatingRoute}
-            className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {isCreatingRoute ? "Dispatching Route..." : "Dispatch To Driver"}
-          </button>
+          <div className="rounded-2xl border-l-4 border-[#244734] bg-[#f4f7f5] p-5">
+            <h3 className="mb-4 text-lg font-extrabold text-[#1f412f]">Change Conditions</h3>
+            <div className="mb-5 border-y border-[#dde8e0] py-3 text-sm font-semibold text-[#3f5b4b]">
+              Selected Bins: {selectedBins.length}
+            </div>
+            <div className="flex flex-col gap-2">
+              {conditionStatusOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => onUpdateSelectedBinsConditionStatus(option.value)}
+                  disabled={selectedBins.length === 0 || isUpdatingBins}
+                  className="rounded-xl border border-[#dde8e0] bg-white px-4 py-2 text-sm font-semibold text-[#244734] transition-colors hover:bg-[#eaf1ec] hover:border-[#b4c9bb] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isUpdatingBins ? "Updating..." : option.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </aside>
       </section>
     </>
