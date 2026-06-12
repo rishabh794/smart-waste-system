@@ -4,12 +4,20 @@ import Image, { type ImageLoader } from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useNetworkStatus } from "@/components/offline/NetworkStatusProvider";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import DashboardPageHeader from "@/components/ui/DashboardPageHeader";
 import { ChevronIcon } from "@/components/ui/icons";
+import { isNetworkError } from "@/lib/offline/network";
+import { enqueueCitizenReport } from "@/lib/offline/queue";
+import { uploadReportImage } from "@/lib/offline/uploadReportImage";
 import { getApiErrorMessage } from "@/lib/services/apiService";
 import { createReport } from "@/lib/services/reportService";
-import { getValidationErrorMessage, reportFormSchema } from "@/lib/validation";
+import {
+  getValidationErrorMessage,
+  reportFormSchema,
+  reportFormWithLocalPhotoSchema,
+} from "@/lib/validation";
 import type { ReportCategory } from "@/types/CitizenTypes";
 
 const CATEGORY_OPTIONS: Array<{ value: ReportCategory; label: string }> = [
@@ -24,6 +32,7 @@ const passthroughLoader: ImageLoader = ({ src }) => src;
 
 export default function ReportIssuePage() {
   const router = useRouter();
+  const { isOnline } = useNetworkStatus();
   const [formState, setFormState] = useState({
     title: "",
     description: "",
@@ -39,6 +48,7 @@ export default function ReportIssuePage() {
   const [isLocating, setIsLocating] = useState(true);
   const [locationError, setLocationError] = useState("");
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageError, setImageError] = useState("");
   const [error, setError] = useState("");
@@ -111,59 +121,23 @@ export default function ReportIssuePage() {
 
     const previewUrl = URL.createObjectURL(file);
     setImagePreviewUrl(previewUrl);
+    setPendingImageFile(file);
     setFormState((current) => ({ ...current, imageUrl: "" }));
-    setIsUploadingImage(true);
     setImageError("");
     setError("");
 
+    if (!isOnline) {
+      return;
+    }
+
+    setIsUploadingImage(true);
+
     try {
-      const signatureRes = await fetch("/api/cloudinary/signature");
-
-      if (!signatureRes.ok) {
-        setImageError("Unable to authorize image upload.");
-        return;
-      }
-
-      const signaturePayload = (await signatureRes.json()) as {
-        cloudName: string;
-        apiKey: string;
-        timestamp: number;
-        folder: string;
-        signature: string;
-      };
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("api_key", signaturePayload.apiKey);
-      formData.append("timestamp", signaturePayload.timestamp.toString());
-      formData.append("signature", signaturePayload.signature);
-      formData.append("folder", signaturePayload.folder);
-
-      const uploadUrl = `https://api.cloudinary.com/v1_1/${signaturePayload.cloudName}/image/upload`;
-      const res = await fetch(uploadUrl, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        setImageError("Image upload failed. Please try again.");
-        setFormState((current) => ({ ...current, imageUrl: "" }));
-        return;
-      }
-
-      const payload = (await res.json()) as { secure_url?: string; url?: string };
-      const uploadedUrl = payload.secure_url ?? payload.url;
-
-      if (!uploadedUrl) {
-        setImageError("Upload finished but no image URL was returned.");
-        setFormState((current) => ({ ...current, imageUrl: "" }));
-        return;
-      }
-
+      const uploadedUrl = await uploadReportImage(file);
       setFormState((current) => ({ ...current, imageUrl: uploadedUrl }));
     } catch (uploadError) {
       console.error(uploadError);
-      setImageError("Network issue while uploading image.");
+      setImageError("");
       setFormState((current) => ({ ...current, imageUrl: "" }));
     } finally {
       setIsUploadingImage(false);
@@ -179,7 +153,7 @@ export default function ReportIssuePage() {
       return;
     }
 
-    if (!formState.imageUrl) {
+    if (!formState.imageUrl && !pendingImageFile) {
       setError("Please upload a photo before submitting.");
       return;
     }
@@ -189,7 +163,14 @@ export default function ReportIssuePage() {
       return;
     }
 
-    const parsed = reportFormSchema.safeParse(formState);
+    const hasLocalPhotoOnly = Boolean(pendingImageFile) && !formState.imageUrl.trim();
+
+    if (hasLocalPhotoOnly) {
+      setImageError("");
+    }
+
+    const schema = hasLocalPhotoOnly ? reportFormWithLocalPhotoSchema : reportFormSchema;
+    const parsed = schema.safeParse(formState);
 
     if (!parsed.success) {
       setError(getValidationErrorMessage(parsed.error));
@@ -200,7 +181,11 @@ export default function ReportIssuePage() {
     const trimmedBinId = parsed.data.binId?.trim();
 
     const payload = {
-      ...parsed.data,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      category: parsed.data.category,
+      latitude: parsed.data.latitude,
+      longitude: parsed.data.longitude,
       address: trimmedAddress ? trimmedAddress : undefined,
       binId: trimmedBinId ? trimmedBinId : undefined,
     };
@@ -208,8 +193,49 @@ export default function ReportIssuePage() {
     setIsSubmitting(true);
     setError("");
 
+    const saveReportOffline = async () => {
+      if (!pendingImageFile) {
+        setError("Please add a photo before submitting offline.");
+        return false;
+      }
+
+      await enqueueCitizenReport({
+        payload: {
+          title: payload.title,
+          description: payload.description,
+          category: payload.category,
+          latitude: payload.latitude,
+          longitude: payload.longitude,
+          address: payload.address,
+          binId: payload.binId,
+        },
+        imageBlob: pendingImageFile,
+      });
+
+      toast.success("Report saved offline. It will submit when you're back online.");
+      router.push("/reports");
+      router.refresh();
+      return true;
+    };
+
     try {
-      const res = await createReport(payload);
+      if (!isOnline) {
+        await saveReportOffline();
+        return;
+      }
+
+      let imageUrl = formState.imageUrl;
+
+      if (!imageUrl && pendingImageFile) {
+        setIsUploadingImage(true);
+        imageUrl = await uploadReportImage(pendingImageFile);
+        setIsUploadingImage(false);
+      }
+
+      const res = await createReport({
+        ...payload,
+        imageUrl,
+      });
 
       if (!res.ok) {
         setError(await getApiErrorMessage(res, "Unable to submit report."));
@@ -221,9 +247,16 @@ export default function ReportIssuePage() {
       router.refresh();
     } catch (submitError) {
       console.error(submitError);
+
+      if (pendingImageFile && isNetworkError(submitError)) {
+        await saveReportOffline();
+        return;
+      }
+
       setError("Network issue while submitting. Please try again.");
     } finally {
       setIsSubmitting(false);
+      setIsUploadingImage(false);
     }
   };
 
@@ -233,7 +266,7 @@ export default function ReportIssuePage() {
     isLocating ||
     !formState.latitude ||
     !formState.longitude ||
-    !formState.imageUrl;
+    (!formState.imageUrl && !pendingImageFile);
 
   return (
     <ProtectedRoute allowedRoles={["user"]}>
@@ -367,6 +400,11 @@ export default function ReportIssuePage() {
                   {formState.imageUrl && !isUploadingImage && (
                     <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#1a7b3a]">
                       Image uploaded successfully.
+                    </p>
+                  )}
+                  {!formState.imageUrl && pendingImageFile && !isUploadingImage && (
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#9a6b16]">
+                      Photo saved locally — will upload when online.
                     </p>
                   )}
                   {imageError && (
