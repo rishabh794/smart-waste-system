@@ -7,6 +7,15 @@ import UniversalFooter from "../components/navigation/UniversalFooter";
 export const metadata = {
   title: "Smart Waste System",
   description: "Route optimization and bin tracking",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Smart Waste",
+  },
+};
+
+export const viewport = {
+  themeColor: "#197443",
 };
 
 export default function RootLayout({

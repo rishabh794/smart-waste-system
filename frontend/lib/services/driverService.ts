@@ -1,5 +1,11 @@
 import polyline from "@mapbox/polyline";
 import { apiFetch } from "@/lib/apiFetch";
+import { isBrowserOnline, isNetworkError } from "@/lib/offline/network";
+import {
+  getRouteGeometrySnapshot,
+  getRouteSnapshot,
+  saveRouteSnapshot,
+} from "@/lib/offline/queue";
 import { getApiErrorMessage } from "@/lib/services/apiService";
 import type {
   DriverBinStatus,
@@ -25,10 +31,26 @@ const routeGeometryCache = new Map<string, OptimizedRouteState>();
 
 export const getDriverRouteKey = (userId: string) => (userId ? `/api/routes/driver/${userId}` : null);
 
+const getUserIdFromRouteKey = (url: string) => url.split("/").pop() ?? "";
+
 export const getCachedRouteGeometry = (routeId: string) => routeGeometryCache.get(routeId);
 
 export const cacheRouteGeometry = (routeId: string, optimizedRoute: OptimizedRouteState) => {
   routeGeometryCache.set(routeId, optimizedRoute);
+};
+
+export const hydrateRouteGeometryFromSnapshot = async (routeId: string) => {
+  if (routeGeometryCache.has(routeId)) {
+    return routeGeometryCache.get(routeId) ?? null;
+  }
+
+  const snapshotGeometry = await getRouteGeometrySnapshot(routeId);
+  if (snapshotGeometry) {
+    routeGeometryCache.set(routeId, snapshotGeometry);
+    return snapshotGeometry;
+  }
+
+  return null;
 };
 
 export const sortBinsBySequence = (bins: RouteBin[]) => {
@@ -52,22 +74,59 @@ export const mergeCachedOrder = (bins: RouteBin[], referenceBins: RouteBin[]) =>
 };
 
 export const fetchDriverRoute = async (url: string): Promise<RouteData | null> => {
-  const res = await apiFetch(url);
+  const userId = getUserIdFromRouteKey(url);
 
-  if (!res.ok) {
-    throw new Error(await getApiErrorMessage(res, "Unable to fetch driver route."));
+  if (!isBrowserOnline()) {
+    const cached = await getRouteSnapshot(userId);
+    if (cached?.route) {
+      return cached.route;
+    }
+    throw new Error("Offline — no cached route available.");
   }
 
-  const payload = (await res.json()) as Partial<RouteData> & { message?: string };
+  try {
+    const res = await apiFetch(url);
 
-  if (!payload.routeId) {
-    return null;
+    if (!res.ok) {
+      throw new Error(await getApiErrorMessage(res, "Unable to fetch driver route."));
+    }
+
+    const payload = (await res.json()) as Partial<RouteData> & { message?: string };
+
+    if (!payload.routeId) {
+      await saveRouteSnapshot({
+        userId,
+        route: null,
+        geometry: null,
+        cachedAt: Date.now(),
+      });
+      return null;
+    }
+
+    const route: RouteData = {
+      routeId: payload.routeId,
+      bins: Array.isArray(payload.bins) ? payload.bins : [],
+    };
+
+    const geometry = routeGeometryCache.get(route.routeId) ?? (await getRouteGeometrySnapshot(route.routeId));
+    await saveRouteSnapshot({
+      userId,
+      route,
+      geometry,
+      cachedAt: Date.now(),
+    });
+
+    return route;
+  } catch (error) {
+    if (!isBrowserOnline() || isNetworkError(error)) {
+      const cached = await getRouteSnapshot(userId);
+      if (cached?.route) {
+        return cached.route;
+      }
+    }
+
+    throw error;
   }
-
-  return {
-    routeId: payload.routeId,
-    bins: Array.isArray(payload.bins) ? payload.bins : [],
-  };
 };
 
 export const optimizeRouteGeometry = async (
@@ -78,6 +137,18 @@ export const optimizeRouteGeometry = async (
   const binCoordinates = routableBins.map((bin) => `${bin.longitude},${bin.latitude}`).join(";");
 
   if (!binCoordinates) {
+    return {
+      bins: sortBinsBySequence(routeData.bins),
+      routePath: [],
+    };
+  }
+
+  if (!isBrowserOnline()) {
+    const cachedGeometry = await hydrateRouteGeometryFromSnapshot(routeData.routeId);
+    if (cachedGeometry) {
+      return cachedGeometry;
+    }
+
     return {
       bins: sortBinsBySequence(routeData.bins),
       routePath: [],
@@ -120,6 +191,20 @@ export const optimizeRouteGeometry = async (
   };
 };
 
+export const persistRouteGeometrySnapshot = async (
+  userId: string,
+  route: RouteData,
+  geometry: OptimizedRouteState
+) => {
+  cacheRouteGeometry(route.routeId, geometry);
+  await saveRouteSnapshot({
+    userId,
+    route,
+    geometry,
+    cachedAt: Date.now(),
+  });
+};
+
 export const updateDriverBinStatus = (
   routeId: string,
   binId: string,
@@ -132,7 +217,7 @@ export const updateDriverBinStatus = (
 ) => {
   const payload = {
     status,
-    ...(typeof options?.wasOverflowing === 'boolean' ? { wasOverflowing: options.wasOverflowing } : {}),
+    ...(typeof options?.wasOverflowing === "boolean" ? { wasOverflowing: options.wasOverflowing } : {}),
     ...(options?.missedReasonCode ? { missedReasonCode: options.missedReasonCode } : {}),
     ...(options?.missedNote ? { missedNote: options.missedNote } : {}),
   };

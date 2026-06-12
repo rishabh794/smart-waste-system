@@ -25,7 +25,8 @@ export default function UniversalNavbar() {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  const stableSession = isMounted && status !== "loading" ? session : null;
+  const isSessionLoading = !isMounted || status === "loading";
+  const stableSession = isSessionLoading ? null : session;
   const navLinks = getNavLinksForRole(stableSession?.user?.role);
 
   const handleSignOut = async () => {
@@ -71,22 +72,36 @@ export default function UniversalNavbar() {
                 <span>SmartWaste.</span>
               </Link>
               <p className="mt-1 hidden text-xs font-medium text-[#607268] sm:block">
-                {stableSession
-                  ? sessionLabel
-                  : "Smart Waste Tracking And Route Coordination"}
+                {isSessionLoading ? (
+                  <span className="inline-block h-3 w-56 max-w-full animate-pulse rounded bg-[#e6efe9]" />
+                ) : stableSession ? (
+                  sessionLabel
+                ) : (
+                  "Smart Waste Tracking And Route Coordination"
+                )}
               </p>
             </div>
 
             <div className="flex items-center gap-2">
-              <nav className="hidden items-center gap-4 lg:flex">
-                {navLinks.map((link) => (
-                  <Link key={link.href} href={link.href} className={linkClass(link.href)}>
-                    {link.label}
-                  </Link>
-                ))}
-              </nav>
+              {isSessionLoading ? (
+                <div className="hidden items-center gap-3 lg:flex">
+                  <span className="h-4 w-16 animate-pulse rounded bg-[#e6efe9]" />
+                  <span className="h-4 w-20 animate-pulse rounded bg-[#e6efe9]" />
+                  <span className="h-4 w-16 animate-pulse rounded bg-[#e6efe9]" />
+                </div>
+              ) : (
+                <nav className="hidden items-center gap-4 lg:flex">
+                  {navLinks.map((link) => (
+                    <Link key={link.href} href={link.href} className={linkClass(link.href)}>
+                      {link.label}
+                    </Link>
+                  ))}
+                </nav>
+              )}
 
-              {!stableSession ? (
+              {isSessionLoading ? (
+                <div className="hidden h-9 w-24 animate-pulse rounded-md bg-[#e6efe9] sm:block" />
+              ) : !stableSession ? (
                 <div className="hidden items-center gap-2 sm:flex">
                   <Link href="/login/citizen" className="btn-secondary">
                     Citizen Login
@@ -127,7 +142,8 @@ export default function UniversalNavbar() {
         sessionLabel={sessionLabel}
         onSignOut={stableSession ? handleSignOut : undefined}
         isSigningOut={isSigningOut}
-        showAuthActions={!stableSession}
+        isSessionLoading={isSessionLoading}
+        showAuthActions={!isSessionLoading && !stableSession}
       />
     </>
   );
