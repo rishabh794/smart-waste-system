@@ -75,6 +75,8 @@ export const enqueueBinStatus = async (input: {
   routeId: string;
   binId: string;
   status: DriverBinStatus;
+  driverLatitude: number;
+  driverLongitude: number;
   options?: BinStatusOptions;
 }) => {
   const outboxItem: OutboxItem = {
@@ -85,6 +87,8 @@ export const enqueueBinStatus = async (input: {
     routeId: input.routeId,
     binId: input.binId,
     binStatus: input.status,
+    driverLatitude: input.driverLatitude,
+    driverLongitude: input.driverLongitude,
     options: input.options,
   };
 

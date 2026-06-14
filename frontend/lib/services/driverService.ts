@@ -209,6 +209,8 @@ export const updateDriverBinStatus = (
   routeId: string,
   binId: string,
   status: DriverBinStatus,
+  driverLatitude: number,
+  driverLongitude: number,
   options?: {
     wasOverflowing?: boolean;
     missedReasonCode?: MissedReasonCode;
@@ -217,6 +219,8 @@ export const updateDriverBinStatus = (
 ) => {
   const payload = {
     status,
+    driverLatitude,
+    driverLongitude,
     ...(typeof options?.wasOverflowing === "boolean" ? { wasOverflowing: options.wasOverflowing } : {}),
     ...(options?.missedReasonCode ? { missedReasonCode: options.missedReasonCode } : {}),
     ...(options?.missedNote ? { missedNote: options.missedNote } : {}),

@@ -12,7 +12,7 @@ import { isNetworkError } from "@/lib/offline/network";
 import { enqueueCitizenReport } from "@/lib/offline/queue";
 import { uploadReportImage } from "@/lib/offline/uploadReportImage";
 import { getApiErrorMessage } from "@/lib/services/apiService";
-import { createReport } from "@/lib/services/reportService";
+import { createReport, fetchNearbyBin } from "@/lib/services/reportService";
 import {
   getValidationErrorMessage,
   reportFormSchema,
@@ -53,6 +53,8 @@ export default function ReportIssuePage() {
   const [imageError, setImageError] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBinAutoDetected, setIsBinAutoDetected] = useState(false);
+  const [isLookingUpBin, setIsLookingUpBin] = useState(false);
 
   const updateField = (key: keyof typeof formState, value: string) => {
     setFormState((current) => ({ ...current, [key]: value }));
@@ -73,12 +75,17 @@ export default function ReportIssuePage() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
         setFormState((current) => ({
           ...current,
-          latitude: position.coords.latitude.toFixed(6),
-          longitude: position.coords.longitude.toFixed(6),
+          latitude: lat,
+          longitude: lng,
         }));
         setIsLocating(false);
+
+        // Auto-detect nearby bin
+        lookupNearbyBin(position.coords.latitude, position.coords.longitude);
       },
       (positionError) => {
         console.error(positionError);
@@ -87,6 +94,27 @@ export default function ReportIssuePage() {
       },
       { enableHighAccuracy: true, timeout: 12_000 }
     );
+  };
+
+  const lookupNearbyBin = async (lat: number, lng: number) => {
+    if (!isOnline) return;
+
+    setIsLookingUpBin(true);
+    try {
+      const result = await fetchNearbyBin(lat, lng);
+      if (result.bin) {
+        setFormState((current) => ({ ...current, binId: result.bin!.id }));
+        setIsBinAutoDetected(true);
+      } else {
+        // No nearby bin — clear any previous auto-detection
+        setIsBinAutoDetected(false);
+      }
+    } catch (error) {
+      console.error("Nearby bin lookup failed:", error);
+      setIsBinAutoDetected(false);
+    } finally {
+      setIsLookingUpBin(false);
+    }
   };
 
   useEffect(() => {
@@ -316,9 +344,8 @@ export default function ReportIssuePage() {
                           type="button"
                           role="option"
                           aria-selected={formState.category === option.value}
-                          className={`dropdown-option ${
-                            formState.category === option.value ? "dropdown-option-selected" : ""
-                          }`}
+                          className={`dropdown-option ${formState.category === option.value ? "dropdown-option-selected" : ""
+                            }`}
                           onClick={() => {
                             updateField("category", option.value);
                             setIsCategoryMenuOpen(false);
@@ -394,7 +421,7 @@ export default function ReportIssuePage() {
                   />
                   {isUploadingImage && (
                     <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#1a7b3a]">
-                      Uploading to Cloudinary...
+                      Uploading
                     </p>
                   )}
                   {formState.imageUrl && !isUploadingImage && (
@@ -436,13 +463,34 @@ export default function ReportIssuePage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#21412f]">Bin ID (optional)</label>
-                  <input
-                    className="input-clean"
-                    placeholder="Paste bin UUID if available"
-                    value={formState.binId}
-                    onChange={(event) => updateField("binId", event.target.value)}
-                  />
+                  <label className="mb-1 block text-sm font-semibold text-[#21412f]">Bin ID {isBinAutoDetected ? '' : '(optional)'}</label>
+                  {isBinAutoDetected ? (
+                    <>
+                      <div className="input-clean flex items-center gap-2 text-[#2f3d33]">
+                        <span className="truncate">{formState.binId}</span>
+                        <span className="ml-auto shrink-0 rounded-full bg-[#dff0d8] px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-[#1a7b3a]">
+                          📍 Auto-detected
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[#5f7167]">
+                        A bin was found within 20m of your location.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        className="input-clean"
+                        placeholder="Paste bin UUID if available"
+                        value={formState.binId}
+                        onChange={(event) => updateField("binId", event.target.value)}
+                      />
+                      {isLookingUpBin && (
+                        <p className="mt-1 text-xs text-[#5f7167]">
+                          Searching for nearby bins...
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {error && (

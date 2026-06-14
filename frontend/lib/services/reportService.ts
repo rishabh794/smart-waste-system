@@ -25,3 +25,23 @@ export const updateReportStatus = (
     body: JSON.stringify(payload),
   });
 };
+
+export interface NearbyBinResult {
+  bin: { id: string; latitude: number; longitude: number; zone: string | null } | null;
+  distance: number | null;
+}
+
+export const fetchNearbyBin = async (
+  latitude: number,
+  longitude: number
+): Promise<NearbyBinResult> => {
+  const res = await apiFetch(
+    `/api/bins/nearby?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}`
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to look up nearby bins.");
+  }
+
+  return res.json() as Promise<NearbyBinResult>;
+};

@@ -34,6 +34,34 @@ import type {
   RouteData,
 } from "@/types/DriverTypes";
 
+const DRIVER_GEOFENCE_RADIUS_M = 40;
+
+/** Haversine distance in meters (client-side mirror for offline geofencing). */
+const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+/** Promise wrapper around navigator.geolocation for async/await usage. */
+const getCurrentPosition = (): Promise<{ latitude: number; longitude: number }> => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation is not supported by this browser."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      (err) => reject(new Error(err.message || "Unable to get your location.")),
+      { enableHighAccuracy: true, timeout: 10_000 }
+    );
+  });
+};
+
 const DriverMap = dynamic(() => import('./DriverMap'), { 
   ssr: false, 
   loading: () => <div className="h-100 w-full soft-surface mb-4 flex items-center justify-center text-[#557064]">Loading GPS Uplink...</div>
@@ -148,6 +176,34 @@ export default function DriverDashboard({ userId }: { userId: string }) {
     const activeRouteId = displayRoute.routeId;
     const previousRouteSnapshot = cachedRoute ?? null;
 
+    // ── Step 1: Capture driver GPS ──
+    let driverCoords: { latitude: number; longitude: number };
+    try {
+      driverCoords = await getCurrentPosition();
+    } catch {
+      toast.error("Unable to get your location. Please enable GPS and try again.");
+      return;
+    }
+
+    // ── Step 2: Client-side geofence pre-check (skipped for 'missed' / skip) ──
+    if (newStatus !== "missed") {
+      const targetBin = displayRoute.bins.find((b) => b.binId === binId);
+      if (targetBin) {
+        const distM = haversineDistance(
+          driverCoords.latitude,
+          driverCoords.longitude,
+          targetBin.latitude,
+          targetBin.longitude
+        );
+        if (distM > DRIVER_GEOFENCE_RADIUS_M) {
+          toast.error(
+            `You must be within ${DRIVER_GEOFENCE_RADIUS_M}m of the bin. You are currently ${Math.round(distM)}m away.`
+          );
+          return;
+        }
+      }
+    }
+
     setBinStatusUpdate({
       binId,
       status: newStatus,
@@ -199,6 +255,8 @@ export default function DriverDashboard({ userId }: { userId: string }) {
         routeId: activeRouteId,
         binId,
         status: newStatus,
+        driverLatitude: driverCoords.latitude,
+        driverLongitude: driverCoords.longitude,
         options,
       });
       await persistOptimisticSnapshot();
@@ -212,11 +270,24 @@ export default function DriverDashboard({ userId }: { userId: string }) {
     }
 
     try {
-      const res = await updateDriverBinStatus(activeRouteId, binId, newStatus, options);
+      const res = await updateDriverBinStatus(
+        activeRouteId,
+        binId,
+        newStatus,
+        driverCoords.latitude,
+        driverCoords.longitude,
+        options
+      );
 
       if (!res.ok) {
         await mutateDriverRoute(previousRouteSnapshot, { revalidate: false, populateCache: true });
-        toast.error(await getApiErrorMessage(res, "Unable to update bin status."));
+
+        if (res.status === 403) {
+          const body = await res.json().catch(() => null);
+          toast.error(body?.error ?? "You are too far from this bin to update its status.");
+        } else {
+          toast.error(await getApiErrorMessage(res, "Unable to update bin status."));
+        }
         return;
       }
 

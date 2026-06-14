@@ -29,6 +29,8 @@ export type OutboxItem =
       routeId: string;
       binId: string;
       binStatus: DriverBinStatus;
+      driverLatitude: number;
+      driverLongitude: number;
       options?: BinStatusOptions;
     }
   | {

@@ -199,6 +199,16 @@ export const updateBinStatusBodySchema = z
     wasOverflowing: z.boolean().optional(),
     missedReasonCode: optionalMissedReasonCodeSchema,
     missedNote: optionalMissedNoteSchema,
+    driverLatitude: z
+      .coerce
+      .number()
+      .min(-90, 'Driver latitude must be between -90 and 90.')
+      .max(90, 'Driver latitude must be between -90 and 90.'),
+    driverLongitude: z
+      .coerce
+      .number()
+      .min(-180, 'Driver longitude must be between -180 and 180.')
+      .max(180, 'Driver longitude must be between -180 and 180.'),
   })
   .superRefine((payload, ctx) => {
     if (payload.status === 'missed' && !payload.missedReasonCode) {
@@ -253,6 +263,19 @@ export const binIdParamsSchema = z.object({
 
 export const reportIdParamsSchema = z.object({
   reportId: uuidSchema,
+});
+
+export const nearbyBinQuerySchema = z.object({
+  latitude: z
+    .coerce
+    .number()
+    .min(-90, 'Latitude must be between -90 and 90.')
+    .max(90, 'Latitude must be between -90 and 90.'),
+  longitude: z
+    .coerce
+    .number()
+    .min(-180, 'Longitude must be between -180 and 180.')
+    .max(180, 'Longitude must be between -180 and 180.'),
 });
 
 export const getValidationErrorMessage = (error: z.ZodError) => {

@@ -1,13 +1,15 @@
 import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
 import { bins , routeBins, routes} from '../db/schema/index.js';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, between } from 'drizzle-orm';
 import {
   binIdParamsSchema,
   createBinBodySchema,
   getValidationErrorMessage,
+  nearbyBinQuerySchema,
   updateBinConditionStatusBodySchema,
 } from '../validation/schemas.js';
+import { haversineDistance, boundingBox, CITIZEN_NEARBY_RADIUS_M } from '../utils/geo.js';
 
 export const getAllBins = async (req: Request, res: Response) => {
   try {
@@ -126,5 +128,56 @@ export const updateBinConditionStatus = async (req: Request, res: Response): Pro
   } catch (error) {
     console.error('Update bin condition status error:', error);
     return res.status(500).json({ error: 'Failed to update bin status' });
+  }
+};
+
+export const getNearbyBin = async (req: Request, res: Response): Promise<any> => {
+  const parsedQuery = nearbyBinQuerySchema.safeParse(req.query);
+
+  if (!parsedQuery.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedQuery.error) });
+  }
+
+  const { latitude, longitude } = parsedQuery.data;
+
+  try {
+    // Step 1: Bounding-box pre-filter — only scan bins in a ~20 m box
+    const box = boundingBox(latitude, longitude, CITIZEN_NEARBY_RADIUS_M);
+
+    const candidates = await db
+      .select({
+        id: bins.id,
+        latitude: bins.latitude,
+        longitude: bins.longitude,
+        zone: bins.zone,
+      })
+      .from(bins)
+      .where(
+        and(
+          eq(bins.status, 'active'),
+          between(bins.latitude, box.minLat, box.maxLat),
+          between(bins.longitude, box.minLon, box.maxLon)
+        )
+      );
+
+    // Step 2: Haversine refinement on the small candidate set
+    let nearest: { id: string; latitude: number; longitude: number; zone: string | null } | null = null;
+    let nearestDistance = Infinity;
+
+    for (const candidate of candidates) {
+      const d = haversineDistance(latitude, longitude, candidate.latitude, candidate.longitude);
+      if (d <= CITIZEN_NEARBY_RADIUS_M && d < nearestDistance) {
+        nearest = candidate;
+        nearestDistance = d;
+      }
+    }
+
+    return res.status(200).json({
+      bin: nearest,
+      distance: nearest ? Math.round(nearestDistance) : null,
+    });
+  } catch (error) {
+    console.error('Nearby bin lookup error:', error);
+    return res.status(500).json({ error: 'Failed to look up nearby bins' });
   }
 };

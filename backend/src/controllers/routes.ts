@@ -11,6 +11,7 @@ import {
   updateBinStatusBodySchema,
 } from '../validation/schemas.js';
 import { resolveReportsForBin } from '../services/reportStatus.js';
+import { haversineDistance, DRIVER_GEOFENCE_RADIUS_M } from '../utils/geo.js';
 
 const getISTDate = () => {
   return new Intl.DateTimeFormat('en-CA', {
@@ -90,7 +91,7 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
   }
 
   const { routeId, binId } = parsedParams.data;
-  const { status, wasOverflowing, missedReasonCode, missedNote } = parsedBody.data;
+  const { status, wasOverflowing, missedReasonCode, missedNote, driverLatitude, driverLongitude } = parsedBody.data;
 
   try {
     const [targetRoute] = await db.select({
@@ -114,6 +115,32 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
 
     if (targetRoute.status !== 'pending') {
       return res.status(400).json({ error: 'Cannot update bin status for a completed route' });
+    }
+
+    // ── Geofence check: driver must be within 40 m of the bin (skipped for 'missed') ──
+    if (status !== 'missed') {
+      const [targetBin] = await db
+        .select({ latitude: bins.latitude, longitude: bins.longitude })
+        .from(bins)
+        .where(eq(bins.id, binId))
+        .limit(1);
+
+      if (!targetBin) {
+        return res.status(404).json({ error: 'Bin not found' });
+      }
+
+      const distanceM = haversineDistance(
+        driverLatitude,
+        driverLongitude,
+        targetBin.latitude,
+        targetBin.longitude
+      );
+
+      if (distanceM > DRIVER_GEOFENCE_RADIUS_M) {
+        return res.status(403).json({
+          error: `You must be within ${DRIVER_GEOFENCE_RADIUS_M}m of the bin to update its status. Current distance: ${Math.round(distanceM)}m.`,
+        });
+      }
     }
 
     const normalizedMissedReasonCode = status === 'missed' ? missedReasonCode ?? null : null;

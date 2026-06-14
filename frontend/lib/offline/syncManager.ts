@@ -48,7 +48,14 @@ const syncCitizenReport = async (item: Extract<OutboxItem, { type: "citizen_repo
 };
 
 const syncBinStatus = async (item: Extract<OutboxItem, { type: "bin_status" }>) => {
-  const res = await updateDriverBinStatus(item.routeId, item.binId, item.binStatus, item.options);
+  const res = await updateDriverBinStatus(
+    item.routeId,
+    item.binId,
+    item.binStatus,
+    item.driverLatitude,
+    item.driverLongitude,
+    item.options
+  );
 
   if (!res.ok) {
     if (isAuthError(res)) {
