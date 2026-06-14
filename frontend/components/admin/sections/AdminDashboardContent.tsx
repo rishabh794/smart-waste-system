@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import dynamic from "next/dynamic";
 import { ChevronIcon } from "@/components/ui/icons";
-import type { Bin, BinConditionStatus, Driver } from "@/types/AdminTypes";
+import type { Bin, BinConditionStatus, City, Driver } from "@/types/AdminTypes";
 
 const RouteMap = dynamic(() => import("../RouteMap"), {
   ssr: false,
@@ -18,6 +18,7 @@ const RouteMap = dynamic(() => import("../RouteMap"), {
 interface AdminDashboardContentProps {
   bins: Bin[];
   drivers: Driver[];
+  cities: City[];
   selectedBins: string[];
   selectedDriver: string;
   selectedDriverName: string;
@@ -100,6 +101,7 @@ const formatLastEmptiedAt = (value: Bin["lastEmptiedAt"]) => {
 export default function AdminDashboardContent({
   bins,
   drivers,
+  cities,
   selectedBins,
   selectedDriver,
   selectedDriverName,
@@ -113,7 +115,40 @@ export default function AdminDashboardContent({
   onCreateRoute,
   onUpdateSelectedBinsConditionStatus,
 }: AdminDashboardContentProps) {
-  // We no longer need local state for individual condition menus.
+
+  const [selectedCityFilter, setSelectedCityFilter] = useState<string | null>(null);
+  const [isCityFilterMenuOpen, setIsCityFilterMenuOpen] = useState(false);
+  const cityFilterMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!cityFilterMenuRef.current) return;
+      if (cityFilterMenuRef.current.contains(event.target as Node)) return;
+      setIsCityFilterMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, []);
+
+  const filteredBins = selectedCityFilter
+    ? bins.filter((b) => b.cityId === selectedCityFilter)
+    : bins;
+
+  const filteredDrivers = selectedCityFilter
+    ? drivers.filter((d) => d.cityId === selectedCityFilter)
+    : drivers;
+
+  const selectedCityObj = selectedCityFilter
+    ? cities.find((c) => c.id === selectedCityFilter)
+    : null;
+
+  const mapCenter: [number, number] | undefined =
+    selectedCityObj && selectedCityObj.depotLat && selectedCityObj.depotLng
+      ? [selectedCityObj.depotLat, selectedCityObj.depotLng]
+      : undefined;
 
   const binSections: Array<{
     key: "active" | "maintenance" | "retired";
@@ -125,31 +160,90 @@ export default function AdminDashboardContent({
       key: "active",
       title: "Active Bins",
       emptyMessage: "No active bins available.",
-      bins: bins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "active"),
+      bins: filteredBins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "active"),
     },
     {
       key: "maintenance",
       title: "Maintenance Bins",
       emptyMessage: "No maintenance bins right now.",
-      bins: bins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "maintenance"),
+      bins: filteredBins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "maintenance"),
     },
     {
       key: "retired",
       title: "Retired Bins",
       emptyMessage: "No retired bins right now.",
-      bins: bins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "retired"),
+      bins: filteredBins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "retired"),
     },
   ];
+
+  const getDriverDisplayName = (driver: Driver) => {
+    return driver.cityName ? `${driver.name} — ${driver.cityName}` : driver.name;
+  };
 
   return (
     <>
       <section className="overflow-hidden rounded-2xl border border-[#e4ece6] bg-[#f8fcf9]">
         <div className="flex items-center justify-between border-b border-[#e4ece6] px-5 py-4">
           <h2 className="text-xl font-extrabold text-[#1d3026]">Live Zone Map</h2>
-          <span className="soft-pill">Auto Sync: 5s</span>
+          <div className="flex items-center gap-3">
+            <div ref={cityFilterMenuRef} className="relative w-48">
+              <button
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isCityFilterMenuOpen}
+                onClick={() => setIsCityFilterMenuOpen((prev) => !prev)}
+                className={`dropdown-clean bg-white py-1.5 text-sm ${isCityFilterMenuOpen ? "dropdown-clean-open" : ""}`}
+              >
+                <span className={selectedCityFilter ? "text-[#1f3b2d]" : "text-[#4f6759]"}>
+                  {selectedCityFilter
+                    ? cities.find((c) => c.id === selectedCityFilter)?.name
+                    : "All Cities"}
+                </span>
+                <ChevronIcon open={isCityFilterMenuOpen} />
+              </button>
+
+              {isCityFilterMenuOpen && (
+                <div
+                  role="listbox"
+                  className="absolute z-40 mt-2 w-full overflow-hidden rounded-xl border border-[#bfd5c5] bg-[#f7fcf8] shadow-lg"
+                >
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={selectedCityFilter === null}
+                    className={`dropdown-option ${selectedCityFilter === null ? "dropdown-option-selected" : ""}`}
+                    onClick={() => {
+                      setSelectedCityFilter(null);
+                      setIsCityFilterMenuOpen(false);
+                    }}
+                  >
+                    All Cities
+                  </button>
+                  <div className="max-h-56 overflow-y-auto">
+                    {cities.map((city) => (
+                      <button
+                        key={city.id}
+                        type="button"
+                        role="option"
+                        aria-selected={selectedCityFilter === city.id}
+                        className={`dropdown-option ${selectedCityFilter === city.id ? "dropdown-option-selected" : ""}`}
+                        onClick={() => {
+                          setSelectedCityFilter(city.id);
+                          setIsCityFilterMenuOpen(false);
+                        }}
+                      >
+                        {city.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <span className="soft-pill shrink-0 whitespace-nowrap">Auto Sync: 5s</span>
+          </div>
         </div>
         <div className="p-5 pt-4">
-          <RouteMap bins={bins} />
+          <RouteMap bins={filteredBins} center={mapCenter} />
         </div>
       </section>
 
@@ -157,7 +251,7 @@ export default function AdminDashboardContent({
         <div>
           <h2 className="mb-4 text-2xl font-extrabold text-[#1d3026]">Admin Control Center</h2>
           <div className="space-y-3">
-            {bins.length === 0 ? (
+            {filteredBins.length === 0 ? (
               <div className="overflow-hidden rounded-2xl border border-[#e4ece6] bg-[#fcfffd] px-4 py-4 text-sm italic text-[#5c7165]">
                 No bins available yet. Register bins from the Create page.
               </div>
@@ -197,7 +291,7 @@ export default function AdminDashboardContent({
                               )}
 
                               <span className="font-semibold text-[#244734]">
-                                Bin #{bin.id.substring(0, 6)} | Zone: {bin.zone ?? "Unassigned"}
+                                Bin #{bin.id.substring(0, 6)} | City: {bin.zone ?? "Unassigned"}
                               </span>
                               <p className="mt-1 text-xs text-[#5a7062]">
                                 Fill: {bin.fillLevel ?? 0}% | Rate: {bin.fillRatePerDay ?? 0}%/day | Last emptied: {formatLastEmptiedAt(bin.lastEmptiedAt)}
@@ -234,7 +328,9 @@ export default function AdminDashboardContent({
               className={`dropdown-clean ${isDriverMenuOpen ? "dropdown-clean-open" : ""}`}
             >
               <span className={selectedDriver ? "text-[#1f3b2d]" : "text-[#4f6759]"}>
-                {selectedDriverName}
+                {selectedDriver
+                  ? getDriverDisplayName(drivers.find((d) => d.id === selectedDriver) ?? { id: "", name: selectedDriverName, cityId: null, cityName: null })
+                  : "-- Choose a Driver --"}
               </span>
               <ChevronIcon open={isDriverMenuOpen} />
             </button>
@@ -254,10 +350,10 @@ export default function AdminDashboardContent({
                   -- Choose a Driver --
                 </button>
                 <div className="max-h-56 overflow-y-auto">
-                  {drivers.length === 0 ? (
+                  {filteredDrivers.length === 0 ? (
                     <p className="px-3 py-3 text-sm italic text-[#5c7165]">No drivers available yet.</p>
                   ) : (
-                    drivers.map((driver) => (
+                    filteredDrivers.map((driver) => (
                       <button
                         key={driver.id}
                         type="button"
@@ -266,7 +362,7 @@ export default function AdminDashboardContent({
                         className={`dropdown-option ${selectedDriver === driver.id ? "dropdown-option-selected" : ""}`}
                         onClick={() => onSelectDriver(driver.id)}
                       >
-                        {driver.name}
+                        {getDriverDisplayName(driver)}
                       </button>
                     ))
                   )}

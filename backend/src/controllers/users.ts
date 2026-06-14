@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
-import { users , routes , routeBins} from '../db/schema/index.js';
+import { users, routes, routeBins, cities } from '../db/schema/index.js';
 import { eq, and, sql, gte } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import {
@@ -15,8 +15,11 @@ export const getDrivers = async (req: Request, res: Response) => {
       id: users.id,
       name: users.name,
       email: users.email,
+      cityId: users.cityId,
+      cityName: cities.name,
     })
     .from(users)
+    .leftJoin(cities, eq(users.cityId, cities.id))
     .where(eq(users.role, 'driver'));
 
     res.status(200).json(drivers);
@@ -32,9 +35,15 @@ export const createDriver = async (req: Request, res: Response): Promise<any> =>
     return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
   }
 
-  const { name, email, password, phone } = parsedBody.data;
+  const { name, email, password, phone, cityId } = parsedBody.data;
 
   try {
+    // Verify the city exists
+    const [city] = await db.select({ id: cities.id }).from(cities).where(eq(cities.id, cityId)).limit(1);
+    if (!city) {
+      return res.status(400).json({ error: 'Selected city does not exist.' });
+    }
+
     // Check if user already exists
     const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
     if (existingUser.length > 0) {
@@ -48,11 +57,13 @@ export const createDriver = async (req: Request, res: Response): Promise<any> =>
       email,
       passwordHash,
       phone,
+      cityId,
       role: 'driver' 
     }).returning({
       id: users.id,
       name: users.name,
-      email: users.email
+      email: users.email,
+      cityId: users.cityId,
     }); 
 
     return res.status(201).json(newDriver);

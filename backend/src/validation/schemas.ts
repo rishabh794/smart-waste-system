@@ -4,18 +4,6 @@ const uuidSchema = z.string().uuid('Invalid ID format.');
 const phonePattern = /^\+?[0-9()\-\s]{7,20}$/;
 const cloudinaryUrlPattern = /^https?:\/\/(?:res\.cloudinary\.com)\/.+/i;
 
-const optionalZoneSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== 'string') {
-      return value;
-    }
-
-    const trimmed = value.trim();
-    return trimmed.length === 0 ? undefined : trimmed;
-  },
-  z.string().max(100, 'Zone must be 100 characters or less.').optional()
-);
-
 const optionalPhoneSchema = z.preprocess(
   (value) => {
     if (typeof value !== 'string') {
@@ -123,7 +111,7 @@ export const createBinBodySchema = z.object({
     .number()
     .min(-180, 'Longitude must be between -180 and 180.')
     .max(180, 'Longitude must be between -180 and 180.'),
-  zone: optionalZoneSchema,
+  cityId: uuidSchema,
   status: binConditionStatusSchema.optional().default('active'),
 });
 
@@ -139,6 +127,27 @@ export const createDriverBodySchema = z.object({
     .min(6, 'Password must be at least 6 characters long.')
     .max(72, 'Password must be 72 characters or fewer.'),
   phone: optionalPhoneSchema,
+  cityId: uuidSchema,
+});
+
+export const createCityBodySchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'City name must be at least 2 characters.')
+    .max(100, 'City name must be 100 characters or less.'),
+  depotLat: z
+    .coerce
+    .number()
+    .min(-90, 'Latitude must be between -90 and 90.')
+    .max(90, 'Latitude must be between -90 and 90.')
+    .optional(),
+  depotLng: z
+    .coerce
+    .number()
+    .min(-180, 'Longitude must be between -180 and 180.')
+    .max(180, 'Longitude must be between -180 and 180.')
+    .optional(),
 });
 
 export const createReportBodySchema = z.object({
@@ -263,6 +272,10 @@ export const binIdParamsSchema = z.object({
 
 export const reportIdParamsSchema = z.object({
   reportId: uuidSchema,
+});
+
+export const cityIdParamsSchema = z.object({
+  cityId: uuidSchema,
 });
 
 export const nearbyBinQuerySchema = z.object({

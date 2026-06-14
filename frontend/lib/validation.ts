@@ -34,11 +34,7 @@ export const createBinFormSchema = z.object({
     .number()
     .min(-180, 'Longitude must be between -180 and 180.')
     .max(180, 'Longitude must be between -180 and 180.'),
-  zone: z
-    .string()
-    .trim()
-    .min(1, 'Zone is required.')
-    .max(100, 'Zone must be 100 characters or less.'),
+  cityId: uuidSchema,
   status: z.enum(['active', 'maintenance', 'retired']),
 });
 
@@ -49,6 +45,27 @@ export const createDriverFormSchema = z.object({
     .string()
     .min(6, 'Password must be at least 6 characters long.')
     .max(72, 'Password must be 72 characters or fewer.'),
+  cityId: uuidSchema,
+});
+
+export const createCityFormSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'City name must be at least 2 characters.')
+    .max(100, 'City name must be 100 characters or less.'),
+  depotLat: z
+    .union([
+      z.coerce.number().min(-90).max(90),
+      z.literal('').transform(() => undefined),
+    ])
+    .optional(),
+  depotLng: z
+    .union([
+      z.coerce.number().min(-180).max(180),
+      z.literal('').transform(() => undefined),
+    ])
+    .optional(),
 });
 
 export const createRouteFormSchema = z

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
-import { bins , routeBins, routes} from '../db/schema/index.js';
+import { bins, routeBins, routes, cities } from '../db/schema/index.js';
 import { and, eq, between } from 'drizzle-orm';
 import {
   binIdParamsSchema,
@@ -17,7 +17,8 @@ export const getAllBins = async (req: Request, res: Response) => {
       id: bins.id,
       latitude: bins.latitude,
       longitude: bins.longitude,
-      zone: bins.zone,
+      cityId: bins.cityId,
+      zone: cities.name,
       fillLevel: bins.fillLevel,
       fillRatePerDay: bins.fillRatePerDay,
       conditionStatus: bins.status,
@@ -27,6 +28,7 @@ export const getAllBins = async (req: Request, res: Response) => {
       routeStatus: routes.status // We need to know if the route is active!
     })
     .from(bins)
+    .innerJoin(cities, eq(bins.cityId, cities.id))
     .leftJoin(routeBins, eq(bins.id, routeBins.binId))
     .leftJoin(routes, eq(routeBins.routeId, routes.id));
 
@@ -61,13 +63,19 @@ export const createBin = async (req: Request, res: Response): Promise<any> => {
     return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
   }
 
-  const { latitude, longitude, zone, status } = parsedBody.data;
+  const { latitude, longitude, cityId, status } = parsedBody.data;
 
   try {
+    // Verify the city exists
+    const [city] = await db.select({ id: cities.id }).from(cities).where(eq(cities.id, cityId)).limit(1);
+    if (!city) {
+      return res.status(400).json({ error: 'Selected city does not exist.' });
+    }
+
     const [newBin] = await db.insert(bins).values({
       latitude,
       longitude,
-      zone: zone || 'Unassigned',
+      cityId,
       status,
     }).returning();
 
@@ -149,9 +157,10 @@ export const getNearbyBin = async (req: Request, res: Response): Promise<any> =>
         id: bins.id,
         latitude: bins.latitude,
         longitude: bins.longitude,
-        zone: bins.zone,
+        zone: cities.name,
       })
       .from(bins)
+      .innerJoin(cities, eq(bins.cityId, cities.id))
       .where(
         and(
           eq(bins.status, 'active'),

@@ -5,6 +5,7 @@ import useSWR from 'swr'; //Stale-While-Revalidate for data fetching and caching
 import { toast } from "sonner";
 import {
   createBinFormSchema,
+  createCityFormSchema,
   createDriverFormSchema,
   createRouteFormSchema,
   getValidationErrorMessage,
@@ -16,12 +17,16 @@ import AdminStatusContent from "@/components/admin/sections/AdminStatusContent";
 import { getApiErrorMessage } from "@/lib/services/apiService";
 import {
   ADMIN_BINS_KEY,
+  ADMIN_CITIES_KEY,
   ADMIN_DRIVERS_KEY,
   ADMIN_PENDING_ROUTES_KEY,
   createBin,
+  createCity,
   createDriver,
   createRoute,
+  deleteCity,
   fetchBins,
+  fetchCities,
   fetchDrivers,
   fetchPendingRoutes,
   updateBinConditionStatus,
@@ -30,8 +35,10 @@ import type {
   AdminDashboardSection,
   Bin,
   BinConditionStatus,
+  City,
   Driver,
   NewBinFormState,
+  NewCityFormState,
   NewDriverFormState,
   PendingRoute,
 } from "@/types/AdminTypes";
@@ -47,6 +54,8 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
   const [isCreatingRoute, setIsCreatingRoute] = useState(false);
   const [isAddingBin, setIsAddingBin] = useState(false);
   const [isAddingDriver, setIsAddingDriver] = useState(false);
+  const [isAddingCity, setIsAddingCity] = useState(false);
+  const [isDeletingCity, setIsDeletingCity] = useState(false);
   const [isUpdatingBins, setIsUpdatingBins] = useState(false);
   // useRef: keep dropdown root for outside-click detection.
   const driverMenuRef = useRef<HTMLDivElement | null>(null);
@@ -54,10 +63,11 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
   const [newBin, setNewBin] = useState<NewBinFormState>({
     latitude: "",
     longitude: "",
-    zone: "",
+    cityId: "",
     status: "active",
   });
-  const [newDriver, setNewDriver] = useState<NewDriverFormState>({ name: "", email: "", password: "" });
+  const [newDriver, setNewDriver] = useState<NewDriverFormState>({ name: "", email: "", password: "", cityId: "" });
+  const [newCity, setNewCity] = useState<NewCityFormState>({ name: "", depotLat: "", depotLng: "" });
 
   const {
     data: binsData,
@@ -86,10 +96,18 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     refreshInterval: 5000,
   });
 
+  const {
+    data: citiesData,
+    error: citiesError,
+    isLoading: isCitiesLoading,
+    mutate: mutateCities,
+  } = useSWR<City[]>(ADMIN_CITIES_KEY, fetchCities);
+
   const bins = binsData ?? [];
   const drivers = driversData ?? [];
   const pendingRoutes = pendingRoutesData ?? [];
-  const isDashboardLoading = isBinsLoading || isDriversLoading;
+  const cities = citiesData ?? [];
+  const isDashboardLoading = isBinsLoading || isDriversLoading || isCitiesLoading;
 
   const selectedDriverName =
     drivers.find((driver) => driver.id === selectedDriver)?.name ?? "-- Choose a Driver --";
@@ -149,7 +167,13 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       } else {
         const errorPayload = await res.json().catch(() => null);
 
-        if (Array.isArray(errorPayload?.unavailableBinIds) && errorPayload.unavailableBinIds.length > 0) {
+        if (Array.isArray(errorPayload?.mismatchedBinIds) && errorPayload.mismatchedBinIds.length > 0) {
+          toast.error("Some selected bins belong to a different city than the driver.");
+          setSelectedBins((previousSelection) =>
+            previousSelection.filter((binId) => !errorPayload.mismatchedBinIds.includes(binId))
+          );
+          await mutateBins();
+        } else if (Array.isArray(errorPayload?.unavailableBinIds) && errorPayload.unavailableBinIds.length > 0) {
           toast.error("Some selected bins are unavailable (maintenance/retired or already on route). Please refresh selections.");
           setSelectedBins((previousSelection) =>
             previousSelection.filter((binId) => !errorPayload.unavailableBinIds.includes(binId))
@@ -187,7 +211,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       const res = await createBin(parsedPayload.data);
       if (res.ok) {
         toast.success("Bin registered successfully.");
-        setNewBin({ latitude: "", longitude: "", zone: "", status: "active" });
+        setNewBin({ latitude: "", longitude: "", cityId: "", status: "active" });
         await mutateBins();
       } else {
         toast.error(await getApiErrorMessage(res, "Unable to register bin right now."));
@@ -259,7 +283,7 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       const res = await createDriver(parsedPayload.data);
       if (res.ok) {
         toast.success("Driver account created successfully.");
-        setNewDriver({ name: "", email: "", password: "" });
+        setNewDriver({ name: "", email: "", password: "", cityId: "" });
         await mutateDrivers();
       } else {
         toast.error(await getApiErrorMessage(res, "Unable to create driver account right now."));
@@ -269,6 +293,57 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
       toast.error("Network issue while creating driver account. Please try again.");
     } finally {
       setIsAddingDriver(false);
+    }
+  };
+
+  const handleAddCity = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (isAddingCity) return;
+
+    const parsedPayload = createCityFormSchema.safeParse(newCity);
+    if (!parsedPayload.success) {
+      toast.warning(getValidationErrorMessage(parsedPayload.error));
+      return;
+    }
+
+    setIsAddingCity(true);
+
+    try {
+      const res = await createCity(parsedPayload.data);
+      if (res.ok) {
+        toast.success("City added successfully.");
+        setNewCity({ name: "", depotLat: "", depotLng: "" });
+        await mutateCities();
+      } else {
+        toast.error(await getApiErrorMessage(res, "Unable to add city right now."));
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Network issue while adding city. Please try again.");
+    } finally {
+      setIsAddingCity(false);
+    }
+  };
+
+  const handleDeleteCity = async (cityId: string) => {
+    if (isDeletingCity) return;
+
+    setIsDeletingCity(true);
+
+    try {
+      const res = await deleteCity(cityId);
+      if (res.ok) {
+        toast.success("City deleted successfully.");
+        await mutateCities();
+      } else {
+        toast.error(await getApiErrorMessage(res, "Unable to delete city right now."));
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Network issue while deleting city. Please try again.");
+    } finally {
+      setIsDeletingCity(false);
     }
   };
 
@@ -283,16 +358,17 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
             />
           )}
 
-          {!isDashboardLoading && (binsError || driversError) && (
+          {!isDashboardLoading && (binsError || driversError || citiesError) && (
             <div className="rounded-xl border border-[#f1caca] bg-[#fff4f3] p-4 text-sm font-semibold text-[#8d2e2b]">
               Unable to load dashboard data right now. Please try again.
             </div>
           )}
 
-          {!isDashboardLoading && !binsError && !driversError && (
+          {!isDashboardLoading && !binsError && !driversError && !citiesError && (
             <AdminDashboardContent
               bins={bins}
               drivers={drivers}
+              cities={cities}
               selectedBins={selectedBins}
               selectedDriver={selectedDriver}
               selectedDriverName={selectedDriverName}
@@ -320,16 +396,24 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
 
       {section === "create" && (
         <AdminCreateContent
+          cities={cities}
+          isCitiesLoading={isCitiesLoading}
           newBin={newBin}
           setNewBin={setNewBin}
           newDriver={newDriver}
           setNewDriver={setNewDriver}
+          newCity={newCity}
+          setNewCity={setNewCity}
           showNewDriverPassword={showNewDriverPassword}
           setShowNewDriverPassword={setShowNewDriverPassword}
           isAddingBin={isAddingBin}
           isAddingDriver={isAddingDriver}
+          isAddingCity={isAddingCity}
+          isDeletingCity={isDeletingCity}
           onAddBin={handleAddBin}
           onAddDriver={handleAddDriver}
+          onAddCity={handleAddCity}
+          onDeleteCity={handleDeleteCity}
         />
       )}
     </div>

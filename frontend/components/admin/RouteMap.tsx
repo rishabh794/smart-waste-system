@@ -1,8 +1,19 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
+import { useEffect } from "react";
 import type { Bin } from "@/types/AdminTypes";
+
+function MapUpdater({ center }: { center?: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) {
+      map.setView(center, map.getZoom() > 12 ? map.getZoom() : 13);
+    }
+  }, [center, map]);
+  return null;
+}
 
 const getMarkerIcon = (bin: Bin) => {
   let bgColor = 'bg-gray-500'; // Default UNASSIGNED
@@ -31,9 +42,10 @@ const getMarkerIcon = (bin: Bin) => {
   });
 };
 
-export default function RouteMap({ bins }: { bins: Bin[] }) {
-  // Center on Dehradun
-  const centerPosition: [number, number] = [30.316, 78.032]; 
+export default function RouteMap({ bins, center }: { bins: Bin[]; center?: [number, number] }) {
+  // Center on Dehradun by default if no center is provided
+  const defaultCenter: [number, number] = [30.316, 78.032]; 
+  const mapCenter = center ?? defaultCenter; 
 
   const formatRouteStatus = (bin: Bin) => {
     if (bin.status === 'ASSIGNED_TODAY') return 'ON ROUTE';
@@ -64,11 +76,12 @@ export default function RouteMap({ bins }: { bins: Bin[] }) {
   return (
     <div className="relative z-0 h-100 w-full overflow-hidden rounded-xl border border-[#dce7df] bg-[#f7fcf8]">
       <MapContainer 
-        center={centerPosition} 
+        center={mapCenter} 
         zoom={13} 
         scrollWheelZoom={true} 
         style={{ height: "100%", width: "100%" }}
       >
+        <MapUpdater center={center} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

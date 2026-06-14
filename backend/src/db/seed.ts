@@ -1,167 +1,172 @@
+/**
+ * Seed script for the smart-waste-system database.
+ *
+ * SAFE: Does NOT touch the reports table.
+ * SAFE: Preserves the existing user rishabhbuchha123456789@gmail.com.
+ *
+ * Run with: npx tsx src/db/seed.ts
+ */
+
+import * as dotenv from 'dotenv';
+dotenv.config();
+
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+import { eq, ne, and } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
-import { db } from './db.js';
-import { bins, routeBins, routes, users } from './schema/index.js';
+import { cities } from './schema/cities.js';
+import { users } from './schema/users.js';
+import { bins } from './schema/bins.js';
+import { routes, routeBins } from './schema/routes.js';
+import { reports } from './schema/reports.js';
 
-const ADMIN_EMAIL = 'admin@waste.com';
-const ADMIN_PASSWORD = 'admin123';
-const DRIVER_PASSWORD = 'password123';
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const db = drizzle(pool);
 
-const dateDaysAgo = (daysAgo: number) => {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() - daysAgo);
-  return date.toISOString().slice(0, 10);
-};
-
-const hoursAgo = (hours: number) => new Date(Date.now() - (hours * 60 * 60 * 1000));
-
-const binSeedData = [
-  { latitude: 30.3400, longitude: 78.0600, zone: 'Rajpur Road', fillLevel: 78, fillRatePerDay: 28, status: 'active', lastEmptiedAt: hoursAgo(42) },
-  { latitude: 30.3350, longitude: 78.0550, zone: 'Rajpur Road', fillLevel: 85, fillRatePerDay: 35, status: 'active', lastEmptiedAt: hoursAgo(30) },
-  { latitude: 30.3500, longitude: 78.0750, zone: 'Pacific Mall Area', fillLevel: 51, fillRatePerDay: 22, status: 'active', lastEmptiedAt: hoursAgo(14) },
-  { latitude: 30.3240, longitude: 78.0400, zone: 'Clock Tower', fillLevel: 62, fillRatePerDay: 26, status: 'active', lastEmptiedAt: hoursAgo(20) },
-  { latitude: 30.3200, longitude: 78.0350, zone: 'Paltan Bazaar', fillLevel: 34, fillRatePerDay: 18, status: 'active', lastEmptiedAt: hoursAgo(9) },
-  { latitude: 30.2880, longitude: 77.9980, zone: 'ISBT', fillLevel: 88, fillRatePerDay: 40, status: 'active', lastEmptiedAt: hoursAgo(55) },
-  { latitude: 30.2680, longitude: 78.0050, zone: 'Clement Town', fillLevel: 44, fillRatePerDay: 16, status: 'active', lastEmptiedAt: hoursAgo(16) },
-  { latitude: 30.2750, longitude: 78.0100, zone: 'Subhash Nagar', fillLevel: 70, fillRatePerDay: 25, status: 'active', lastEmptiedAt: hoursAgo(26) },
-  { latitude: 30.3350, longitude: 77.9640, zone: 'Prem Nagar', fillLevel: 40, fillRatePerDay: 14, status: 'active', lastEmptiedAt: hoursAgo(11) },
-  { latitude: 30.3400, longitude: 77.9500, zone: 'Vikasnagar Road', fillLevel: 66, fillRatePerDay: 24, status: 'active', lastEmptiedAt: hoursAgo(24) },
-] as const;
+const PRESERVED_EMAIL = 'rishabhbuchha123456789@gmail.com';
 
 async function seed() {
-  console.log('Resetting database tables...');
+  console.log('🌱 Starting seed...');
 
-  try {
-    await db.delete(routeBins);
-    await db.delete(routes);
-    await db.delete(bins);
-    await db.delete(users);
+  // ── 1. Clean up route-related data (but NOT reports) ──
+  console.log('  🧹 Cleaning route_bins, routes, bins, drivers...');
+  await db.delete(routeBins);
+  await db.delete(routes);
+  
+  // Nullify bin references in reports so we can safely delete bins
+  await db.update(reports).set({ binId: null, resolvedById: null, resolvedByName: null });
+  await db.delete(bins);
 
-    const [adminPasswordHash, driverPasswordHash] = await Promise.all([
-      bcrypt.hash(ADMIN_PASSWORD, 10),
-      bcrypt.hash(DRIVER_PASSWORD, 10),
-    ]);
+  // Delete all drivers EXCEPT the preserved user
+  await db.delete(users).where(
+    and(
+      ne(users.email, PRESERVED_EMAIL),
+      eq(users.role, 'driver')
+    )
+  );
 
-    const seededUsers = await db
-      .insert(users)
-      .values([
-        { name: 'System Admin', email: ADMIN_EMAIL, passwordHash: adminPasswordHash, role: 'admin' },
-        { name: 'Amit Singh', email: 'amit@waste.com', passwordHash: driverPasswordHash, role: 'driver' },
-        { name: 'Rahul Sharma', email: 'rahul@waste.com', passwordHash: driverPasswordHash, role: 'driver' },
-        { name: 'Priya Patel', email: 'priya@waste.com', passwordHash: driverPasswordHash, role: 'driver' },
-      ])
-      .returning({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        role: users.role,
-      });
+  // Clean up old cities
+  await db.delete(cities);
 
-    const usersByEmail = new Map(seededUsers.map((seededUser) => [seededUser.email, seededUser]));
+  // ── 2. Seed Cities ──
+  console.log('  🏙️  Seeding cities...');
+  const [siliguri, kolkata, mumbai] = await db.insert(cities).values([
+    {
+      name: 'Siliguri',
+      depotLat: 26.7271,
+      depotLng: 88.3953,
+    },
+    {
+      name: 'Kolkata',
+      depotLat: 22.5726,
+      depotLng: 88.3639,
+    },
+    {
+      name: 'Mumbai',
+      depotLat: 19.0760,
+      depotLng: 72.8777,
+    },
+  ]).returning();
 
-    const getUserByEmail = (email: string) => {
-      const user = usersByEmail.get(email);
-      if (!user) {
-        throw new Error(`Expected seeded user not found: ${email}`);
-      }
-      return user;
-    };
+  console.log(`    ✅ Created cities: ${siliguri!.name}, ${kolkata!.name}, ${mumbai!.name}`);
 
-    const amit = getUserByEmail('amit@waste.com');
-    const rahul = getUserByEmail('rahul@waste.com');
+  // ── 3. Update the preserved user's city if they exist ──
+  const [preservedUser] = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(eq(users.email, PRESERVED_EMAIL))
+    .limit(1);
 
-    const seededBins = await db
-      .insert(bins)
-      .values([...binSeedData])
-      .returning({ id: bins.id });
-
-    if (seededBins.length !== 10) {
-      throw new Error('Expected 10 seeded bins for route assignment setup.');
-    }
-
-    const [bin1, bin2, bin3, bin4, bin5, bin6, bin7, bin8, bin9, bin10] = seededBins;
-
-    if (!bin1 || !bin2 || !bin3 || !bin4 || !bin5 || !bin6 || !bin7 || !bin8 || !bin9 || !bin10) {
-      throw new Error('Expected 10 seeded bins for route_bin setup.');
-    }
-
-    const seededRoutes = await db
-      .insert(routes)
-      .values([
-        { driverId: amit.id, assignedDate: dateDaysAgo(1), status: 'completed' },
-        { driverId: amit.id, assignedDate: dateDaysAgo(3), status: 'completed' },
-        { driverId: amit.id, assignedDate: dateDaysAgo(8), status: 'completed' },
-        { driverId: amit.id, assignedDate: dateDaysAgo(0), status: 'pending' },
-        { driverId: rahul.id, assignedDate: dateDaysAgo(2), status: 'completed' },
-      ])
-      .returning({
-        id: routes.id,
-        assignedDate: routes.assignedDate,
-      });
-
-    if (seededRoutes.length !== 5) {
-      throw new Error('Expected 5 seeded routes for dashboard/stats setup.');
-    }
-
-    const [amitRouteRecent, amitRouteWeekly, amitRouteOld, amitRoutePending, rahulRoute] = seededRoutes;
-
-    if (!amitRouteRecent || !amitRouteWeekly || !amitRouteOld || !amitRoutePending || !rahulRoute) {
-      throw new Error('Expected 5 seeded routes for stats test setup.');
-    }
-
-    await db.insert(routeBins).values([
-      { routeId: amitRouteRecent.id, binId: bin1.id, sequenceNumber: 1, fillStatus: 'collected' },
-      {
-        routeId: amitRouteRecent.id,
-        binId: bin2.id,
-        sequenceNumber: 2,
-        fillStatus: 'collected',
-        wasOverflowing: true,
-      },
-      { routeId: amitRouteRecent.id, binId: bin3.id, sequenceNumber: 3, fillStatus: 'collected' },
-
-      { routeId: amitRouteWeekly.id, binId: bin4.id, sequenceNumber: 1, fillStatus: 'collected' },
-      { routeId: amitRouteWeekly.id, binId: bin5.id, sequenceNumber: 2, fillStatus: 'collected' },
-
-      {
-        routeId: amitRouteOld.id,
-        binId: bin6.id,
-        sequenceNumber: 1,
-        fillStatus: 'collected',
-        wasOverflowing: true,
-      },
-      { routeId: amitRouteOld.id, binId: bin7.id, sequenceNumber: 2, fillStatus: 'collected' },
-
-      { routeId: amitRoutePending.id, binId: bin8.id, sequenceNumber: 1, fillStatus: 'unknown' },
-      {
-        routeId: amitRoutePending.id,
-        binId: bin9.id,
-        sequenceNumber: 2,
-        fillStatus: 'missed',
-        missedReason: 'road_blocked',
-        missedNote: 'Waterlogging and barricades blocked truck access.',
-      },
-
-      { routeId: rahulRoute.id, binId: bin10.id, sequenceNumber: 1, fillStatus: 'collected' },
-      {
-        routeId: rahulRoute.id,
-        binId: bin1.id,
-        sequenceNumber: 2,
-        fillStatus: 'collected',
-        wasOverflowing: true,
-      },
-    ]);
-
-    console.log('Seed complete.');
-    console.log(`Admin login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
-    console.log('Driver login: amit@waste.com / password123');
-    console.log('Driver login: rahul@waste.com / password123');
-    console.log('Driver login: priya@waste.com / password123');
-
-    process.exit(0);
-  } catch (error) {
-    console.error('Seeding failed:', error);
-    process.exit(1);
+  if (preservedUser) {
+    await db.update(users).set({ cityId: siliguri!.id }).where(eq(users.id, preservedUser.id));
+    console.log(`  👤 Updated preserved user (${PRESERVED_EMAIL}) → city: Siliguri`);
   }
+
+  // ── 4. Seed Drivers ──
+  console.log('  🚛 Seeding drivers...');
+  const driverPassword = await bcrypt.hash('driver123', 10);
+
+  const seededDrivers = await db.insert(users).values([
+    {
+      name: 'Amit Kumar',
+      email: 'amit.driver@smartwaste.in',
+      passwordHash: driverPassword,
+      role: 'driver' as const,
+      phone: '+91-9876543210',
+      cityId: siliguri!.id,
+    },
+    {
+      name: 'Ravi Sharma',
+      email: 'ravi.driver@smartwaste.in',
+      passwordHash: driverPassword,
+      role: 'driver' as const,
+      phone: '+91-9876543211',
+      cityId: siliguri!.id,
+    },
+    {
+      name: 'Suresh Mondal',
+      email: 'suresh.driver@smartwaste.in',
+      passwordHash: driverPassword,
+      role: 'driver' as const,
+      phone: '+91-9876543212',
+      cityId: kolkata!.id,
+    },
+    {
+      name: 'Priya Das',
+      email: 'priya.driver@smartwaste.in',
+      passwordHash: driverPassword,
+      role: 'driver' as const,
+      phone: '+91-9876543213',
+      cityId: mumbai!.id,
+    },
+  ]).returning({ id: users.id, name: users.name, email: users.email });
+
+  for (const d of seededDrivers) {
+    console.log(`    ✅ ${d.name} (${d.email})`);
+  }
+
+  // ── 5. Seed Bins ──
+  console.log('  🗑️  Seeding bins...');
+
+  // Siliguri bins (around Siliguri city center)
+  const siliguriBins = await db.insert(bins).values([
+    { latitude: 26.7271, longitude: 88.3953, cityId: siliguri!.id, status: 'active', fillLevel: 75, fillRatePerDay: 25 },
+    { latitude: 26.7310, longitude: 88.3990, cityId: siliguri!.id, status: 'active', fillLevel: 40, fillRatePerDay: 15 },
+    { latitude: 26.7250, longitude: 88.3910, cityId: siliguri!.id, status: 'active', fillLevel: 90, fillRatePerDay: 30 },
+    { latitude: 26.7290, longitude: 88.4020, cityId: siliguri!.id, status: 'active', fillLevel: 20, fillRatePerDay: 10 },
+    { latitude: 26.7230, longitude: 88.3870, cityId: siliguri!.id, status: 'active', fillLevel: 60, fillRatePerDay: 20 },
+    { latitude: 26.7340, longitude: 88.3940, cityId: siliguri!.id, status: 'maintenance', fillLevel: 0, fillRatePerDay: 0 },
+  ]).returning({ id: bins.id });
+
+  console.log(`    ✅ Siliguri: ${siliguriBins.length} bins`);
+
+  // Kolkata bins (around Park Street / Esplanade area)
+  const kolkataBins = await db.insert(bins).values([
+    { latitude: 22.5726, longitude: 88.3639, cityId: kolkata!.id, status: 'active', fillLevel: 85, fillRatePerDay: 35 },
+    { latitude: 22.5750, longitude: 88.3670, cityId: kolkata!.id, status: 'active', fillLevel: 50, fillRatePerDay: 20 },
+    { latitude: 22.5700, longitude: 88.3610, cityId: kolkata!.id, status: 'active', fillLevel: 30, fillRatePerDay: 15 },
+    { latitude: 22.5780, longitude: 88.3700, cityId: kolkata!.id, status: 'active', fillLevel: 95, fillRatePerDay: 40 },
+  ]).returning({ id: bins.id });
+
+  console.log(`    ✅ Kolkata: ${kolkataBins.length} bins`);
+
+  // Mumbai bins (around Andheri / BKC area)
+  const mumbaiBins = await db.insert(bins).values([
+    { latitude: 19.0760, longitude: 72.8777, cityId: mumbai!.id, status: 'active', fillLevel: 70, fillRatePerDay: 30 },
+    { latitude: 19.0800, longitude: 72.8810, cityId: mumbai!.id, status: 'active', fillLevel: 55, fillRatePerDay: 25 },
+    { latitude: 19.0730, longitude: 72.8740, cityId: mumbai!.id, status: 'active', fillLevel: 45, fillRatePerDay: 20 },
+  ]).returning({ id: bins.id });
+
+  console.log(`    ✅ Mumbai: ${mumbaiBins.length} bins`);
+
+  // ── Done ──
+  console.log('\n🎉 Seed completed successfully!');
+  console.log('   Driver credentials → password: driver123');
+
+  await pool.end();
 }
 
-void seed();
+seed().catch((error) => {
+  console.error('❌ Seed failed:', error);
+  process.exit(1);
+});

@@ -1,4 +1,5 @@
 import { pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { cities } from './cities.js';
 
 export const userRoleEnum = pgEnum('user_role', ['admin', 'driver', 'user']);
 
@@ -9,5 +10,6 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   role: userRoleEnum('role').notNull().default('user'),
   phone: varchar('phone', { length: 20 }),
+  cityId: uuid('city_id').references(() => cities.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

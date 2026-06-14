@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
-import { routes, routeBins, bins, users } from '../db/schema/index.js';
+import { routes, routeBins, bins, users, cities } from '../db/schema/index.js';
 import {and,desc, eq , inArray} from 'drizzle-orm';
 import {
   createRouteBodySchema,
@@ -57,17 +57,34 @@ export const getDriverTodayRoute = async (req: Request, res: Response): Promise<
       binId: bins.id,
       latitude: bins.latitude,
       longitude: bins.longitude,
-      zone: bins.zone,
+      zone: cities.name,
       status: routeBins.fillStatus,
       wasOverflowing: routeBins.wasOverflowing,
       sequence: routeBins.sequenceNumber
     })
     .from(routeBins)
     .innerJoin(bins, eq(routeBins.binId, bins.id))
+    .innerJoin(cities, eq(bins.cityId, cities.id))
     .where(eq(routeBins.routeId, latestRoute.id));
+
+    // Fetch driver's city depot coordinates
+    const [driver] = await db.select({ cityId: users.cityId }).from(users).where(eq(users.id, driverId)).limit(1);
+    
+    let depotLat: number | undefined;
+    let depotLng: number | undefined;
+    
+    if (driver?.cityId) {
+      const [city] = await db.select({ lat: cities.depotLat, lng: cities.depotLng }).from(cities).where(eq(cities.id, driver.cityId)).limit(1);
+      if (city && city.lat != null && city.lng != null) {
+        depotLat = city.lat;
+        depotLng = city.lng;
+      }
+    }
 
     res.status(200).json({
       routeId: latestRoute.id,
+      depotLat,
+      depotLng,
       bins: assignedBins.sort((a, b) => a.sequence - b.sequence)
     });
   } catch (error) {
@@ -216,6 +233,46 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
 
   try {
     const result = await db.transaction(async (tx) => {
+      // ── City enforcement: driver must have a city, and its depot must be configured ──
+      const [driver] = await tx
+        .select({ id: users.id, cityId: users.cityId })
+        .from(users)
+        .where(eq(users.id, driverId))
+        .limit(1);
+
+      if (!driver || !driver.cityId) {
+        return { status: 'driver-no-city' } as const;
+      }
+
+      const [driverCity] = await tx
+        .select({ id: cities.id, depotLat: cities.depotLat, depotLng: cities.depotLng })
+        .from(cities)
+        .where(eq(cities.id, driver.cityId))
+        .limit(1);
+
+      if (!driverCity) {
+        return { status: 'driver-no-city' } as const;
+      }
+
+      // Depot coordinates must be set before routes can be dispatched (OSRM needs them)
+      if (driverCity.depotLat == null || driverCity.depotLng == null) {
+        return { status: 'city-no-depot' } as const;
+      }
+
+      // ── City mismatch check: all bins must belong to the driver's city ──
+      const requestedBins = await tx
+        .select({ id: bins.id, cityId: bins.cityId })
+        .from(bins)
+        .where(inArray(bins.id, binIds));
+
+      const mismatchedBinIds = requestedBins
+        .filter((bin) => bin.cityId !== driver.cityId)
+        .map((bin) => bin.id);
+
+      if (mismatchedBinIds.length > 0) {
+        return { status: 'city-mismatch', mismatchedBinIds } as const;
+      }
+
       const [pendingRoute] = await tx
         .select({
           id: routes.id,
@@ -275,6 +332,25 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
 
       return { status: 'created', routeId: newRoute.id } as const;
     });
+
+    if (result.status === 'driver-no-city') {
+      return res.status(400).json({
+        error: 'Driver is not assigned to any city. Please assign a city first.',
+      });
+    }
+
+    if (result.status === 'city-no-depot') {
+      return res.status(400).json({
+        error: 'The driver\'s city does not have depot coordinates configured. Please set depot coordinates before dispatching routes.',
+      });
+    }
+
+    if (result.status === 'city-mismatch') {
+      return res.status(403).json({
+        error: 'Some bins belong to a different city than the driver.',
+        mismatchedBinIds: result.mismatchedBinIds,
+      });
+    }
 
     if (result.status === 'driver-pending') {
       return res.status(409).json({

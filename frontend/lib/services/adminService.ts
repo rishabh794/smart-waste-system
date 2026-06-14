@@ -2,7 +2,9 @@ import { apiFetch } from "@/lib/apiFetch";
 import { fetchApiJson } from "@/lib/services/apiService";
 import type {
   Bin,
+  City,
   CreateBinPayload,
+  CreateCityPayload,
   CreateDriverPayload,
   CreateRoutePayload,
   Driver,
@@ -13,12 +15,15 @@ import type {
 export const ADMIN_BINS_KEY = "/api/bins";
 export const ADMIN_DRIVERS_KEY = "/api/users/drivers";
 export const ADMIN_PENDING_ROUTES_KEY = "/api/routes/pending";
+export const ADMIN_CITIES_KEY = "/api/cities";
 
 export const fetchBins = (url: string) => fetchApiJson<Bin[]>(url);
 
 export const fetchDrivers = (url: string) => fetchApiJson<Driver[]>(url);
 
 export const fetchPendingRoutes = (url: string) => fetchApiJson<PendingRoute[]>(url);
+
+export const fetchCities = (url: string) => fetchApiJson<City[]>(url);
 
 export const createRoute = (payload: CreateRoutePayload) => {
   return apiFetch("/api/routes", {
@@ -48,5 +53,18 @@ export const createDriver = (payload: CreateDriverPayload) => {
   return apiFetch("/api/users/drivers", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+};
+
+export const createCity = (payload: CreateCityPayload) => {
+  return apiFetch("/api/cities", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteCity = (cityId: string) => {
+  return apiFetch(`/api/cities/${cityId}`, {
+    method: "DELETE",
   });
 };
