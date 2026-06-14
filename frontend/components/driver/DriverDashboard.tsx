@@ -8,6 +8,7 @@ import DataLoadingState from "@/components/ui/DataLoadingState";
 import DriverNoRouteMessage from "@/components/driver/sections/DriverNoRouteMessage";
 import DriverRoutePanel from "@/components/driver/sections/DriverRoutePanel";
 import { useNetworkStatus } from "@/components/offline/NetworkStatusProvider";
+import { useDriverLocation } from "@/lib/hooks/useDriverLocation";
 import { OFFLINE_SYNC_COMPLETE_EVENT } from "@/lib/offline/events";
 import { isNetworkError } from "@/lib/offline/network";
 import { enqueueBinStatus, enqueueRouteComplete } from "@/lib/offline/queue";
@@ -36,6 +37,9 @@ import type {
 
 const DRIVER_GEOFENCE_RADIUS_M = 40;
 
+const resolveDepotCoords = (depotLat?: number, depotLng?: number): [number, number] =>
+  depotLat != null && depotLng != null ? [depotLat, depotLng] : DEPOT_COORDS;
+
 /** Haversine distance in meters (client-side mirror for offline geofencing). */
 const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -48,27 +52,14 @@ const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 };
 
 /** Promise wrapper around navigator.geolocation for async/await usage. */
-const getCurrentPosition = (): Promise<{ latitude: number; longitude: number }> => {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("Geolocation is not supported by this browser."));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-      (err) => reject(new Error(err.message || "Unable to get your location.")),
-      { enableHighAccuracy: true, timeout: 10_000 }
-    );
-  });
-};
-
-const DriverMap = dynamic(() => import('./DriverMap'), { 
-  ssr: false, 
+const DriverMap = dynamic(() => import('./DriverMap'), {
+  ssr: false,
   loading: () => <div className="h-100 w-full soft-surface mb-4 flex items-center justify-center text-[#557064]">Loading GPS Uplink...</div>
 });
 
 export default function DriverDashboard({ userId }: { userId: string }) {
   const { isOnline } = useNetworkStatus();
+  const { driverPosition, isTracking, gpsError, getPositionForUpdate } = useDriverLocation();
   // SWR key scoped to the current driver session.
   const routeKey = getDriverRouteKey(userId);
 
@@ -122,7 +113,12 @@ export default function DriverDashboard({ userId }: { userId: string }) {
 
         setDisplayRoute({ ...cachedRoute, bins: orderedBins });
         setRoutePath(cachedGeometry.routePath);
-        setPreservedMap({ bins: orderedBins, routePath: cachedGeometry.routePath });
+        setPreservedMap({
+          bins: orderedBins,
+          routePath: cachedGeometry.routePath,
+          depotLat: cachedRoute.depotLat ?? cachedGeometry.depotLat,
+          depotLng: cachedRoute.depotLng ?? cachedGeometry.depotLng,
+        });
         return;
       }
 
@@ -138,7 +134,11 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       await persistRouteGeometrySnapshot(userId, cachedRoute, optimizedRoute);
       setDisplayRoute({ ...cachedRoute, bins: optimizedRoute.bins });
       setRoutePath(optimizedRoute.routePath);
-      setPreservedMap(optimizedRoute);
+      setPreservedMap({
+        ...optimizedRoute,
+        depotLat: cachedRoute.depotLat ?? optimizedRoute.depotLat,
+        depotLng: cachedRoute.depotLng ?? optimizedRoute.depotLng,
+      });
     };
 
     void synchronizeRouteView();
@@ -175,20 +175,36 @@ export default function DriverDashboard({ userId }: { userId: string }) {
 
     const activeRouteId = displayRoute.routeId;
     const previousRouteSnapshot = cachedRoute ?? null;
+    const targetBin = displayRoute.bins.find((b) => b.binId === binId);
 
-    // ── Step 1: Capture driver GPS ──
-    let driverCoords: { latitude: number; longitude: number };
+    setBinStatusUpdate({
+      binId,
+      status: newStatus,
+      wasOverflowing: options?.wasOverflowing,
+      missedReasonCode: options?.missedReasonCode,
+      missedNote: options?.missedNote,
+    });
+
     try {
-      driverCoords = await getCurrentPosition();
-    } catch {
-      toast.error("Unable to get your location. Please enable GPS and try again.");
-      return;
-    }
+      let driverCoords = await getPositionForUpdate();
 
-    // ── Step 2: Client-side geofence pre-check (skipped for 'missed' / skip) ──
-    if (newStatus !== "missed") {
-      const targetBin = displayRoute.bins.find((b) => b.binId === binId);
-      if (targetBin) {
+      if (!driverCoords && newStatus === "missed" && targetBin) {
+        driverCoords = {
+          latitude: targetBin.latitude,
+          longitude: targetBin.longitude,
+          capturedAt: Date.now(),
+        };
+      }
+
+      if (!driverCoords) {
+        toast.error(
+          gpsError ??
+            "GPS signal unavailable. Enable location access and wait for a fix, or mark the stop as skipped."
+        );
+        return;
+      }
+
+      if (newStatus !== "missed" && targetBin) {
         const distM = haversineDistance(
           driverCoords.latitude,
           driverCoords.longitude,
@@ -202,105 +218,95 @@ export default function DriverDashboard({ userId }: { userId: string }) {
           return;
         }
       }
-    }
 
-    setBinStatusUpdate({
-      binId,
-      status: newStatus,
-      wasOverflowing: options?.wasOverflowing,
-      missedReasonCode: options?.missedReasonCode,
-      missedNote: options?.missedNote,
-    });
+      const buildUpdatedRoute = (currentRoute: RouteData | null | undefined) => {
+        if (!currentRoute || currentRoute.routeId !== activeRouteId) {
+          return currentRoute ?? null;
+        }
 
-    const buildUpdatedRoute = (currentRoute: RouteData | null | undefined) => {
-      if (!currentRoute || currentRoute.routeId !== activeRouteId) {
-        return currentRoute ?? null;
-      }
-
-      return {
-        ...currentRoute,
-        bins: currentRoute.bins.map((bin) =>
-          bin.binId === binId
-            ? {
+        return {
+          ...currentRoute,
+          bins: currentRoute.bins.map((bin) =>
+            bin.binId === binId
+              ? {
                 ...bin,
                 status: newStatus,
                 wasOverflowing: newStatus === "collected" ? Boolean(options?.wasOverflowing) : false,
               }
-            : bin
-        ),
+              : bin
+          ),
+        };
       };
-    };
 
-    let optimisticRoute: RouteData | null = null;
+      let optimisticRoute: RouteData | null = null;
 
-    // SWR optimistic cache update for instant UI feedback.
-    await mutateDriverRoute(
-      (currentRoute) => {
-        optimisticRoute = buildUpdatedRoute(currentRoute) ?? null;
-        return optimisticRoute;
-      },
-      { revalidate: false, populateCache: true }
-    );
-
-    const persistOptimisticSnapshot = async () => {
-      if (!optimisticRoute) return;
-      await persistRouteGeometrySnapshot(userId, optimisticRoute, {
-        bins: optimisticRoute.bins,
-        routePath: routePath.length > 0 ? routePath : (preservedMap?.routePath ?? []),
-      });
-    };
-
-    const queueOfflineBinUpdate = async () => {
-      await enqueueBinStatus({
-        routeId: activeRouteId,
-        binId,
-        status: newStatus,
-        driverLatitude: driverCoords.latitude,
-        driverLongitude: driverCoords.longitude,
-        options,
-      });
-      await persistOptimisticSnapshot();
-      toast.info("Update saved offline — will sync when online.");
-    };
-
-    if (!isOnline) {
-      await queueOfflineBinUpdate();
-      setBinStatusUpdate(null);
-      return;
-    }
-
-    try {
-      const res = await updateDriverBinStatus(
-        activeRouteId,
-        binId,
-        newStatus,
-        driverCoords.latitude,
-        driverCoords.longitude,
-        options
+      await mutateDriverRoute(
+        (currentRoute) => {
+          optimisticRoute = buildUpdatedRoute(currentRoute) ?? null;
+          return optimisticRoute;
+        },
+        { revalidate: false, populateCache: true }
       );
 
-      if (!res.ok) {
-        await mutateDriverRoute(previousRouteSnapshot, { revalidate: false, populateCache: true });
+      const persistOptimisticSnapshot = async () => {
+        if (!optimisticRoute) return;
+        await persistRouteGeometrySnapshot(userId, optimisticRoute, {
+          bins: optimisticRoute.bins,
+          routePath: routePath.length > 0 ? routePath : (preservedMap?.routePath ?? []),
+        });
+      };
 
-        if (res.status === 403) {
-          const body = await res.json().catch(() => null);
-          toast.error(body?.error ?? "You are too far from this bin to update its status.");
-        } else {
-          toast.error(await getApiErrorMessage(res, "Unable to update bin status."));
-        }
-        return;
-      }
+      const queueOfflineBinUpdate = async () => {
+        await enqueueBinStatus({
+          routeId: activeRouteId,
+          binId,
+          status: newStatus,
+          driverLatitude: driverCoords.latitude,
+          driverLongitude: driverCoords.longitude,
+          options,
+        });
+        await persistOptimisticSnapshot();
+        toast.info("Update saved offline — will sync when online.");
+      };
 
-      await persistOptimisticSnapshot();
-    } catch (error) {
-      if (!isOnline || isNetworkError(error)) {
+      if (!isOnline) {
         await queueOfflineBinUpdate();
         return;
       }
 
-      await mutateDriverRoute(previousRouteSnapshot, { revalidate: false, populateCache: true });
-      console.error("Network error:", error);
-      toast.error("Network issue while updating bin status. Please try again.");
+      try {
+        const res = await updateDriverBinStatus(
+          activeRouteId,
+          binId,
+          newStatus,
+          driverCoords.latitude,
+          driverCoords.longitude,
+          options
+        );
+
+        if (!res.ok) {
+          await mutateDriverRoute(previousRouteSnapshot, { revalidate: false, populateCache: true });
+
+          if (res.status === 403) {
+            const body = await res.json().catch(() => null);
+            toast.error(body?.error ?? "You are too far from this bin to update its status.");
+          } else {
+            toast.error(await getApiErrorMessage(res, "Unable to update bin status."));
+          }
+          return;
+        }
+
+        await persistOptimisticSnapshot();
+      } catch (error) {
+        if (isNetworkError(error)) {
+          await queueOfflineBinUpdate();
+          return;
+        }
+
+        await mutateDriverRoute(previousRouteSnapshot, { revalidate: false, populateCache: true });
+        console.error("Network error:", error);
+        toast.error("Network issue while updating bin status. Please try again.");
+      }
     } finally {
       setBinStatusUpdate(null);
     }
@@ -376,7 +382,13 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       <div className="space-y-4">
         {preservedMap && (
           <div className="relative">
-            <DriverMap bins={visibleMapBins} routePolyline={visibleMapPath} depotCoords={DEPOT_COORDS} />
+            <DriverMap
+              bins={visibleMapBins}
+              routePolyline={visibleMapPath}
+              depotCoords={resolveDepotCoords(preservedMap.depotLat, preservedMap.depotLng)}
+              driverPosition={driverPosition}
+              isTrackingGps={isTracking}
+            />
             <div className="pointer-events-none absolute inset-0 flex items-start justify-end rounded-xl bg-[#f8fcf9]/55 p-3">
               <span className="rounded-full border border-[#d6e6dc] bg-[#ffffffcf] px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#2f4c3b]">
                 Route cache preserved
@@ -392,12 +404,28 @@ export default function DriverDashboard({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-[#e6efe9] pb-4">
-        <h2 className="text-2xl font-extrabold text-[#1f412f]">Driver Interface</h2>
-        <p className="mt-1 text-sm text-[#607267]">Track your assigned stops and update collection outcomes.</p>
-      </div>
 
-      <DriverMap bins={displayRoute.bins} routePolyline={routePath} depotCoords={DEPOT_COORDS} />
+      <DriverMap 
+        bins={displayRoute.bins} 
+        routePolyline={routePath} 
+        depotCoords={resolveDepotCoords(displayRoute.depotLat, displayRoute.depotLng)}
+        driverPosition={driverPosition}
+        isTrackingGps={isTracking}
+      />
+
+      {!isTracking && (
+        <p className="rounded-lg border border-[#f0dfb2] bg-[#fff8e8] px-3 py-2 text-xs text-[#7a5a13]">
+          {gpsError
+            ? "GPS unavailable — enable location to verify bin proximity. Skip stops can still be queued offline."
+            : "Acquiring GPS signal… The blue dot tracks your live position as you move."}
+        </p>
+      )}
+
+      {isTracking && driverPosition && (
+        <p className="text-xs text-[#5f7167]">
+          Blue dot shows your live GPS position and updates as you move. If signal drops, it stays at your last known location.
+        </p>
+      )}
 
       <DriverRoutePanel
         key={displayRoute.routeId}
@@ -405,6 +433,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
         binStatusUpdate={binStatusUpdate}
         isConfirmingComplete={isConfirmingComplete}
         isCompletingRoute={isCompletingRoute}
+        isOnline={isOnline}
         onSetConfirmingComplete={setIsConfirmingComplete}
         onUpdateBinStatus={updateBinStatus}
         onCompleteRoute={handleCompleteRoute}

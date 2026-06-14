@@ -1,7 +1,8 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
+import { useEffect } from "react";
 import type { RouteBin } from "@/types/DriverTypes";
 
 // Keep your custom CSS marker logic
@@ -28,11 +29,27 @@ const getMarkerIcon = (status: string, isDepot: boolean = false, wasOverflowing:
 
 interface DriverMapProps {
   bins: RouteBin[];
-  routePolyline: [number, number][]; // Array of [lat, lng] for the blue line
+  routePolyline: [number, number][];
   depotCoords: [number, number];
+  driverPosition?: { latitude: number; longitude: number } | null;
+  isTrackingGps?: boolean;
 }
 
-export default function DriverMap({ bins, routePolyline, depotCoords }: DriverMapProps) {
+function MapUpdater({ center }: { center: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, map.getZoom());
+  }, [center, map]);
+  return null;
+}
+
+export default function DriverMap({
+  bins,
+  routePolyline,
+  depotCoords,
+  driverPosition,
+  isTrackingGps = false,
+}: DriverMapProps) {
   const formatBinStatusLabel = (bin: RouteBin) => {
     if (bin.status === 'collected' && bin.wasOverflowing) {
       return 'collected (overflow observed)';
@@ -53,6 +70,30 @@ export default function DriverMap({ bins, routePolyline, depotCoords }: DriverMa
           attribution='&copy; OpenStreetMap'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <MapUpdater center={depotCoords} />
+
+        {driverPosition && (
+          <Marker
+            position={[driverPosition.latitude, driverPosition.longitude]}
+            icon={L.divIcon({
+              className: "custom-leaflet-icon",
+              html: `<div class="relative flex h-7 w-7 items-center justify-center">
+                <span class="absolute h-7 w-7 animate-ping rounded-full ${isTrackingGps ? "bg-blue-400/40" : "bg-orange-400/40"}"></span>
+                <span class="relative h-4 w-4 rounded-full border-2 border-white bg-blue-600 shadow-lg"></span>
+              </div>`,
+              iconSize: [28, 28],
+              iconAnchor: [14, 14],
+            })}
+          >
+            <Popup>
+              <div className="text-black">
+                <strong>Your location</strong>
+                <br />
+                {isTrackingGps ? "Live GPS — updates as you move" : "Last known position"}
+              </div>
+            </Popup>
+          </Marker>
+        )}
         
         {/* Draw the Route Line */}
         {routePolyline.length > 0 && (

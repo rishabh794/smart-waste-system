@@ -1,6 +1,6 @@
 import polyline from "@mapbox/polyline";
 import { apiFetch } from "@/lib/apiFetch";
-import { isBrowserOnline, isNetworkError } from "@/lib/offline/network";
+import { isEffectivelyOnline, isNetworkError } from "@/lib/offline/network";
 import {
   getRouteGeometrySnapshot,
   getRouteSnapshot,
@@ -75,8 +75,9 @@ export const mergeCachedOrder = (bins: RouteBin[], referenceBins: RouteBin[]) =>
 
 export const fetchDriverRoute = async (url: string): Promise<RouteData | null> => {
   const userId = getUserIdFromRouteKey(url);
+  const online = await isEffectivelyOnline();
 
-  if (!isBrowserOnline()) {
+  if (!online) {
     const cached = await getRouteSnapshot(userId);
     if (cached?.route) {
       return cached.route;
@@ -105,6 +106,8 @@ export const fetchDriverRoute = async (url: string): Promise<RouteData | null> =
 
     const route: RouteData = {
       routeId: payload.routeId,
+      depotLat: payload.depotLat,
+      depotLng: payload.depotLng,
       bins: Array.isArray(payload.bins) ? payload.bins : [],
     };
 
@@ -118,7 +121,7 @@ export const fetchDriverRoute = async (url: string): Promise<RouteData | null> =
 
     return route;
   } catch (error) {
-    if (!isBrowserOnline() || isNetworkError(error)) {
+    if (!(await isEffectivelyOnline()) || isNetworkError(error)) {
       const cached = await getRouteSnapshot(userId);
       if (cached?.route) {
         return cached.route;
@@ -132,7 +135,9 @@ export const fetchDriverRoute = async (url: string): Promise<RouteData | null> =
 export const optimizeRouteGeometry = async (
   routeData: RouteData
 ): Promise<OptimizedRouteState> => {
-  const depotStr = `${DEPOT_COORDS[1]},${DEPOT_COORDS[0]}`;
+  const depotLat = routeData.depotLat ?? DEPOT_COORDS[0];
+  const depotLng = routeData.depotLng ?? DEPOT_COORDS[1];
+  const depotStr = `${depotLng},${depotLat}`;
   const routableBins = routeData.bins.filter((bin) => bin.longitude && bin.latitude);
   const binCoordinates = routableBins.map((bin) => `${bin.longitude},${bin.latitude}`).join(";");
 
@@ -140,10 +145,12 @@ export const optimizeRouteGeometry = async (
     return {
       bins: sortBinsBySequence(routeData.bins),
       routePath: [],
+      depotLat,
+      depotLng,
     };
   }
 
-  if (!isBrowserOnline()) {
+  if (!(await isEffectivelyOnline())) {
     const cachedGeometry = await hydrateRouteGeometryFromSnapshot(routeData.routeId);
     if (cachedGeometry) {
       return cachedGeometry;
@@ -152,6 +159,8 @@ export const optimizeRouteGeometry = async (
     return {
       bins: sortBinsBySequence(routeData.bins),
       routePath: [],
+      depotLat,
+      depotLng,
     };
   }
 
@@ -179,6 +188,8 @@ export const optimizeRouteGeometry = async (
       return {
         bins: sortBinsBySequence(optimizedBins),
         routePath: decodedPath,
+        depotLat,
+        depotLng,
       };
     }
   } catch (error) {
@@ -188,6 +199,8 @@ export const optimizeRouteGeometry = async (
   return {
     bins: sortBinsBySequence(routeData.bins),
     routePath: [],
+    depotLat,
+    depotLng,
   };
 };
 

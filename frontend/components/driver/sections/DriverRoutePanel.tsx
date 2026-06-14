@@ -29,11 +29,21 @@ const createDefaultSkipStopDraft = (): SkipStopDraft => ({
   missedNote: "",
 });
 
+const getPendingActionLabel = (isOnline: boolean) =>
+  isOnline ? "Updating..." : "Saving offline...";
+
+const isMatchingBinUpdate = (
+  update: BinStatusUpdate | null,
+  binId: string,
+  match: (update: BinStatusUpdate) => boolean
+) => Boolean(update && update.binId === binId && match(update));
+
 interface DriverRoutePanelProps {
   displayRoute: RouteData;
   binStatusUpdate: BinStatusUpdate | null;
   isConfirmingComplete: boolean;
   isCompletingRoute: boolean;
+  isOnline: boolean;
   onSetConfirmingComplete: (value: boolean) => void;
   onUpdateBinStatus: (
     binId: string,
@@ -52,6 +62,7 @@ export default function DriverRoutePanel({
   binStatusUpdate,
   isConfirmingComplete,
   isCompletingRoute,
+  isOnline,
   onSetConfirmingComplete,
   onUpdateBinStatus,
   onCompleteRoute,
@@ -181,8 +192,12 @@ export default function DriverRoutePanel({
                       disabled={Boolean(binStatusUpdate)}
                       className="rounded-md border border-[#cfdacb] bg-[#eef5ea] px-3 py-2.5 text-sm font-bold text-[#17311f] transition hover:border-[#1a7b3a] hover:bg-[#dff0d8] disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {binStatusUpdate?.binId === bin.binId && binStatusUpdate.status === "collected"
-                        ? "Updating..."
+                      {isMatchingBinUpdate(
+                        binStatusUpdate,
+                        bin.binId,
+                        (update) => update.status === "collected" && !update.wasOverflowing
+                      )
+                        ? getPendingActionLabel(isOnline)
                         : "Collected"}
                     </button>
                     <button
@@ -190,8 +205,12 @@ export default function DriverRoutePanel({
                       disabled={Boolean(binStatusUpdate)}
                       className="rounded-md border border-[#e8c4c4] bg-[#fff5f5] px-3 py-2.5 text-sm font-bold text-[#7d2222] transition hover:bg-[#ffe8e8] disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {binStatusUpdate?.binId === bin.binId && binStatusUpdate.status === "collected" && binStatusUpdate.wasOverflowing
-                        ? "Updating..."
+                      {isMatchingBinUpdate(
+                        binStatusUpdate,
+                        bin.binId,
+                        (update) => update.status === "collected" && Boolean(update.wasOverflowing)
+                      )
+                        ? getPendingActionLabel(isOnline)
                         : "Overflow"}
                     </button>
                     <button
@@ -199,8 +218,8 @@ export default function DriverRoutePanel({
                       disabled={Boolean(binStatusUpdate)}
                       className="rounded-md border border-[#f0d3a5] bg-[#fff7ea] px-3 py-2.5 text-sm font-bold text-[#8a5721] transition hover:bg-[#ffefcf] disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {binStatusUpdate?.binId === bin.binId && binStatusUpdate.status === "missed"
-                        ? "Updating..."
+                      {isMatchingBinUpdate(binStatusUpdate, bin.binId, (update) => update.status === "missed")
+                        ? getPendingActionLabel(isOnline)
                         : isSkipStopFormOpen
                           ? "Close"
                           : "Skip"}
@@ -281,7 +300,9 @@ export default function DriverRoutePanel({
                           disabled={Boolean(binStatusUpdate)}
                           className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                          Confirm Skip
+                          {isMatchingBinUpdate(binStatusUpdate, bin.binId, (update) => update.status === "missed")
+                            ? getPendingActionLabel(isOnline)
+                            : "Confirm Skip"}
                         </button>
                       </div>
                     </div>
@@ -320,7 +341,11 @@ export default function DriverRoutePanel({
                     disabled={isCompletingRoute}
                     className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isCompletingRoute ? "Completing..." : "Yes, Complete Route"}
+                    {isCompletingRoute
+                      ? isOnline
+                        ? "Completing..."
+                        : "Saving offline..."
+                      : "Yes, Complete Route"}
                   </button>
                 </div>
               </div>

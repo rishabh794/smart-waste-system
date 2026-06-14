@@ -19,12 +19,16 @@ export interface RouteBin {
 
 export interface RouteData {
   routeId: string;
+  depotLat?: number;
+  depotLng?: number;
   bins: RouteBin[];
 }
 
 export interface OptimizedRouteState {
   bins: RouteBin[];
   routePath: [number, number][];
+  depotLat?: number;
+  depotLng?: number;
 }
 
 export interface BinStatusUpdate {
