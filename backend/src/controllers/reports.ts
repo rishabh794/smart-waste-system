@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
-import { reports, users } from '../db/schema/index.js';
+import { reports, reportAiAnalyses, users } from '../db/schema/index.js';
 import { desc, eq } from 'drizzle-orm';
 import {
   createReportBodySchema,
@@ -9,6 +9,7 @@ import {
   updateReportStatusBodySchema,
 } from '../validation/schemas.js';
 import { updateReportStatusWithActor } from '../services/reportStatus.js';
+import { analyzeReportImage } from '../services/aiAnalysis.js';
 
 export const createReport = async (req: Request, res: Response): Promise<any> => {
   if (!req.user) {
@@ -61,6 +62,11 @@ export const createReport = async (req: Request, res: Response): Promise<any> =>
       return res.status(500).json({ error: 'Failed to create report' });
     }
 
+    // Fire-and-forget: AI analysis runs in the background
+    analyzeReportImage(newReport.id, imageUrl).catch((err) =>
+      console.error(`[AI] Background analysis failed for report ${newReport.id}:`, err)
+    );
+
     return res.status(201).json(newReport);
   } catch (error) {
     console.error('Create report error:', error);
@@ -78,7 +84,7 @@ export const getMyReports = async (req: Request, res: Response): Promise<any> =>
   }
 
   try {
-    const myReports = await db
+    const rows = await db
       .select({
         id: reports.id,
         binId: reports.binId,
@@ -96,10 +102,24 @@ export const getMyReports = async (req: Request, res: Response): Promise<any> =>
         resolvedAt: reports.resolvedAt,
         resolvedById: reports.resolvedById,
         resolvedByName: reports.resolvedByName,
+        aiStatus: reportAiAnalyses.status,
+        aiIsValidReport: reportAiAnalyses.isValidReport,
+        aiConfidenceScore: reportAiAnalyses.confidenceScore,
+        aiSeverity: reportAiAnalyses.severity,
+        aiCategory: reportAiAnalyses.category,
+        aiReason: reportAiAnalyses.reason,
       })
       .from(reports)
+      .leftJoin(reportAiAnalyses, eq(reports.id, reportAiAnalyses.reportId))
       .where(eq(reports.userId, req.user.id))
       .orderBy(desc(reports.createdAt));
+
+    const myReports = rows.map(({ aiStatus, aiIsValidReport, aiConfidenceScore, aiSeverity, aiCategory, aiReason, ...report }) => ({
+      ...report,
+      aiAnalysis: aiStatus
+        ? { status: aiStatus, isValidReport: aiIsValidReport, confidenceScore: aiConfidenceScore, severity: aiSeverity, category: aiCategory, reason: aiReason }
+        : null,
+    }));
 
     return res.status(200).json(myReports);
   } catch (error) {
@@ -114,7 +134,7 @@ export const getAllReports = async (req: Request, res: Response): Promise<any> =
   }
 
   try {
-    const allReports = await db
+    const rows = await db
       .select({
         id: reports.id,
         binId: reports.binId,
@@ -134,10 +154,24 @@ export const getAllReports = async (req: Request, res: Response): Promise<any> =
         updatedAt: reports.updatedAt,
         reportedBy: users.name,
         reporterEmail: users.email,
+        aiStatus: reportAiAnalyses.status,
+        aiIsValidReport: reportAiAnalyses.isValidReport,
+        aiConfidenceScore: reportAiAnalyses.confidenceScore,
+        aiSeverity: reportAiAnalyses.severity,
+        aiCategory: reportAiAnalyses.category,
+        aiReason: reportAiAnalyses.reason,
       })
       .from(reports)
       .innerJoin(users, eq(reports.userId, users.id))
+      .leftJoin(reportAiAnalyses, eq(reports.id, reportAiAnalyses.reportId))
       .orderBy(desc(reports.createdAt));
+
+    const allReports = rows.map(({ aiStatus, aiIsValidReport, aiConfidenceScore, aiSeverity, aiCategory, aiReason, ...report }) => ({
+      ...report,
+      aiAnalysis: aiStatus
+        ? { status: aiStatus, isValidReport: aiIsValidReport, confidenceScore: aiConfidenceScore, severity: aiSeverity, category: aiCategory, reason: aiReason }
+        : null,
+    }));
 
     return res.status(200).json(allReports);
   } catch (error) {
