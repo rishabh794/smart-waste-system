@@ -12,7 +12,7 @@ import DashboardPageHeader from "@/components/ui/DashboardPageHeader";
 import { subscribeOfflineStore } from "@/lib/offline/events";
 import { isBrowserOnline } from "@/lib/offline/network";
 import { getOutboxItem, listPendingReports } from "@/lib/offline/queue";
-import { fetchMyReports, USER_REPORTS_KEY } from "@/lib/services/reportService";
+import { fetchMyReports, USER_REPORTS_KEY, deleteReport } from "@/lib/services/reportService";
 import { formatReportCategory, formatReportDateTime, STATUS_STYLES } from "@/lib/reportDisplay";
 import type { CitizenReport } from "@/types/CitizenTypes";
 import type { PendingCitizenReport } from "@/lib/offline/types";
@@ -26,6 +26,8 @@ interface PendingReportView extends PendingCitizenReport {
 export default function ReportsPage() {
   const { isOnline, isSyncing } = useNetworkStatus();
   const [pendingReports, setPendingReports] = useState<PendingReportView[]>([]);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
   const {
     data: reports,
@@ -92,6 +94,24 @@ export default function ReportsPage() {
 
   const showServerError = Boolean(error) && isBrowserOnline();
   const hasNoReports = !isLoading && !showServerError && !reports?.length && pendingReports.length === 0;
+
+  const handleDelete = async (reportId: string) => {
+    setIsDeletingId(reportId);
+
+    try {
+      const res = await deleteReport(reportId);
+      if (!res.ok) {
+        throw new Error("Failed to delete report");
+      }
+      void mutate();
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while deleting the report.");
+    } finally {
+      setIsDeletingId(null);
+      setDeleteConfirmId(null);
+    }
+  };
 
   return (
     <ProtectedRoute allowedRoles={["user"]}>
@@ -281,6 +301,35 @@ export default function ReportsPage() {
                         unoptimized
                       />
                     </div>
+                  </div>
+                  
+                  <div className="mt-4 flex justify-end border-t border-[#e4ece6] pt-4">
+                    {deleteConfirmId === report.id ? (
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-[#9b2c2c]">Are you sure?</span>
+                        <button
+                          onClick={() => setDeleteConfirmId(null)}
+                          disabled={isDeletingId === report.id}
+                          className="btn-secondary !border-transparent !bg-transparent !px-3 hover:!bg-[#e4ece6] disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleDelete(report.id)}
+                          disabled={isDeletingId === report.id}
+                          className="btn-secondary !border-[#f1c9c9] !bg-[#9b2c2c] !text-white hover:!bg-[#7a2222] disabled:opacity-50"
+                        >
+                          {isDeletingId === report.id ? "Deleting..." : "Yes, Delete"}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeleteConfirmId(report.id)}
+                        className="btn-secondary !border-[#f1c9c9] !bg-[#fff5f5] !text-[#9b2c2c] hover:!bg-[#fcebeb]"
+                      >
+                        Delete Report
+                      </button>
+                    )}
                   </div>
                 </article>
               );

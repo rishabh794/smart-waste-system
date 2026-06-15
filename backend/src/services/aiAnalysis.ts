@@ -1,13 +1,13 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../db/db.js';
-import { reportAiAnalyses } from '../db/schema/index.js';
+import { reportAiAnalyses, reports } from '../db/schema/index.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 const REQUEST_TIMEOUT_MS = 30_000;
 
-const ANALYSIS_PROMPT = `You are a waste management AI. Analyze this image and determine if it shows a valid waste or garbage report.
+const ANALYSIS_PROMPT = `You are a strict automated triage agent for a municipal waste department. Analyze this image and determine if it shows a valid waste, garbage, litter, or infrastructure damage report.
 
 Return ONLY a JSON object with these exact fields:
 {
@@ -18,14 +18,27 @@ Return ONLY a JSON object with these exact fields:
   "reason": string                // brief 1-2 sentence explanation of your analysis
 }
 
-Guidelines:
-- If the image does not contain waste, garbage, or a waste-related issue, set isValidReport to false.
-- "critical" severity is for hazardous materials, medical waste, or situations posing immediate danger.
-- "high" severity is for large illegal dumps, overflowing bins blocking pathways, etc.
-- "medium" severity is for moderately overflowing bins or scattered litter.
-- "low" severity is for minor litter or a single misplaced item.
+Guidelines for Classification:
 
-Return ONLY the JSON object, no markdown, no code fences.`;
+1. VALIDITY & FALLBACK:
+- If the image clearly shows waste or a related issue, set isValidReport to true.
+- If the image DOES NOT show waste (e.g., a selfie, a dog, a blurry black screen), set isValidReport to false. 
+- IMPORTANT: If isValidReport is false, you MUST default severity to "low" and category to "general".
+
+2. SEVERITY LEVELS:
+- "critical": Hazardous materials, medical waste, active fires, or situations posing immediate danger to public safety.
+- "high": Large illegal dumping sites, heavily overflowing bins blocking sidewalks, or dead animals.
+- "medium": Moderately overflowing bins, scattered street litter, or damaged public bins.
+- "low": Minor litter, a single misplaced item, or general cleanliness issues.
+
+3. WASTE CATEGORIES:
+- "organic": Food waste, yard trimmings, dead leaves, branches.
+- "bulk": Furniture, mattresses, large appliances, construction debris.
+- "recyclable": Cardboard boxes, clean plastics, glass bottles, metal cans.
+- "hazardous": Batteries, paint cans, chemicals, medical waste, sharp objects.
+- "general": Mixed municipal trash, unidentifiable bags of garbage, or street sweepings.
+
+Return ONLY the JSON object. Do not include markdown formatting or code blocks.`;
 
 interface AiAnalysisResult {
   isValidReport: boolean;
@@ -129,15 +142,14 @@ const callGemini = async (
   return parsed;
 };
 
-/**
- * Runs the full AI analysis pipeline for a report.
- * This is meant to be called fire-and-forget from the controller.
- */
-export const analyzeReportImage = async (reportId: string, imageUrl: string): Promise<void> => {
-  // Step 1: Insert a pending row
+export const processAiAnalysisJob = async (reportId: string, imageUrl: string): Promise<void> => {
+  // Step 1: Insert or update a pending row
   await db.insert(reportAiAnalyses).values({
     reportId,
     status: 'pending',
+  }).onConflictDoUpdate({
+    target: reportAiAnalyses.reportId,
+    set: { status: 'pending' },
   });
 
   const controller = new AbortController();
@@ -151,17 +163,29 @@ export const analyzeReportImage = async (reportId: string, imageUrl: string): Pr
     const result = await callGemini(base64, mimeType, controller.signal);
 
     // Step 4: Update with results
-    await db
-      .update(reportAiAnalyses)
-      .set({
-        status: 'completed',
-        isValidReport: result.isValidReport,
-        confidenceScore: Math.max(0, Math.min(100, Math.round(result.confidenceScore))),
-        severity: result.severity,
-        category: result.category,
-        reason: result.reason,
-      })
-      .where(eq(reportAiAnalyses.reportId, reportId));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(reportAiAnalyses)
+        .set({
+          status: 'completed',
+          isValidReport: result.isValidReport,
+          confidenceScore: Math.max(0, Math.min(100, Math.round(result.confidenceScore))),
+          severity: result.severity,
+          category: result.category,
+          reason: result.reason,
+        })
+        .where(eq(reportAiAnalyses.reportId, reportId));
+
+      if (!result.isValidReport) {
+        await tx
+          .update(reports)
+          .set({
+            status: 'rejected',
+            adminNotes: `Automatically rejected by AI Analysis: ${result.reason}`,
+          })
+          .where(eq(reports.id, reportId));
+      }
+    });
 
     console.log(`[AI] Analysis completed for report ${reportId}: valid=${result.isValidReport}, confidence=${result.confidenceScore}`);
   } catch (error) {
@@ -176,6 +200,9 @@ export const analyzeReportImage = async (reportId: string, imageUrl: string): Pr
       })
       .where(eq(reportAiAnalyses.reportId, reportId))
       .catch((dbErr) => console.error(`[AI] Failed to update failure status:`, dbErr));
+
+    // Throw the error so BullMQ knows the job failed and can retry it
+    throw error;
   } finally {
     clearTimeout(timeout);
   }

@@ -9,7 +9,8 @@ import {
   updateReportStatusBodySchema,
 } from '../validation/schemas.js';
 import { updateReportStatusWithActor } from '../services/reportStatus.js';
-import { analyzeReportImage } from '../services/aiAnalysis.js';
+import { processAiAnalysisJob } from '../services/aiAnalysis.js';
+import { aiQueue } from '../queues/aiQueue.js';
 
 export const createReport = async (req: Request, res: Response): Promise<any> => {
   if (!req.user) {
@@ -63,9 +64,22 @@ export const createReport = async (req: Request, res: Response): Promise<any> =>
     }
 
     // Fire-and-forget: AI analysis runs in the background
-    analyzeReportImage(newReport.id, imageUrl).catch((err) =>
-      console.error(`[AI] Background analysis failed for report ${newReport.id}:`, err)
-    );
+    if (aiQueue) {
+      aiQueue.add(
+        'analyze-image', 
+        { reportId: newReport.id, imageUrl },
+        { 
+          attempts: 3, 
+          backoff: { type: 'fixed', delay: 5 * 60 * 1000 } // 5 minutes 
+        }
+      ).catch((err) => {
+        console.error(`[AI] Failed to add job to queue for report ${newReport.id}:`, err);
+      });
+    } else {
+      processAiAnalysisJob(newReport.id, imageUrl).catch((err) =>
+        console.error(`[AI] Background analysis failed for report ${newReport.id}:`, err)
+      );
+    }
 
     return res.status(201).json(newReport);
   } catch (error) {
@@ -224,5 +238,40 @@ export const updateReportStatus = async (req: Request<{ reportId: string }>, res
   } catch (error) {
     console.error('Update report status error:', error);
     return res.status(500).json({ error: 'Failed to update report status' });
+  }
+};
+
+export const deleteReport = async (req: Request<{ reportId: string }>, res: Response): Promise<any> => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized: Missing user context' });
+  }
+
+  const { reportId } = req.params;
+
+  try {
+    // Determine the report's owner
+    const [report] = await db
+      .select({ userId: reports.userId })
+      .from(reports)
+      .where(eq(reports.id, reportId))
+      .limit(1);
+
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    // Only the creator or an admin can delete it
+    if (report.userId !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: You can only delete your own reports' });
+    }
+
+    // Hard delete: delete dependent records first if they exist
+    await db.delete(reportAiAnalyses).where(eq(reportAiAnalyses.reportId, reportId));
+    await db.delete(reports).where(eq(reports.id, reportId));
+
+    return res.status(200).json({ message: 'Report deleted successfully' });
+  } catch (error) {
+    console.error('Delete report error:', error);
+    return res.status(500).json({ error: 'Failed to delete report' });
   }
 };

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
 import apiRoutes from './routes/api.js';
+import './queues/aiQueue.js'; // Initialize BullMQ workers
 
 dotenv.config();
 
