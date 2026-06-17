@@ -7,6 +7,7 @@ import { signOut, useSession } from "next-auth/react";
 import { toast } from "sonner";
 import MobileNavDrawer from "@/components/navigation/MobileNavDrawer";
 import { getNavLinksForRole } from "@/lib/navigationLinks";
+import { clearOfflineDb } from "@/lib/offline/db";
 import { getRoleLabel } from "@/lib/roles";
 
 export default function UniversalNavbar() {
@@ -34,6 +35,7 @@ export default function UniversalNavbar() {
 
     try {
       setIsSigningOut(true);
+      await clearOfflineDb();
       const result = await signOut({ redirect: false, callbackUrl: "/login" });
       toast.success("Signed out successfully.");
       router.push(result?.url ?? "/login");

@@ -37,3 +37,12 @@ export const getOfflineDb = () => {
 
   return dbPromise;
 };
+
+export const clearOfflineDb = async () => {
+  const db = await getOfflineDb();
+  const tx = db.transaction(["outbox", "pendingReports", "routeSnapshots"], "readwrite");
+  await tx.objectStore("outbox").clear();
+  await tx.objectStore("pendingReports").clear();
+  await tx.objectStore("routeSnapshots").clear();
+  await tx.done;
+};

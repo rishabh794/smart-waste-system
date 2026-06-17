@@ -40,6 +40,7 @@ export interface CitizenReport {
 
 
 export interface CreateReportPayload {
+  clientReportId?: string;
   title: string;
   description: string;
   category: ReportCategory;

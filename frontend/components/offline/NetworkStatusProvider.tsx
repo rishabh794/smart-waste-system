@@ -14,6 +14,7 @@ import { subscribeOfflineStore } from "@/lib/offline/events";
 import { isBrowserOnline, isEffectivelyOnline } from "@/lib/offline/network";
 import { getPendingCount } from "@/lib/offline/queue";
 import { flushOutbox } from "@/lib/offline/syncManager";
+import { useSession } from "next-auth/react";
 
 const CONNECTIVITY_POLL_MS = 10_000;
 
@@ -34,6 +35,8 @@ const NetworkStatusContext = createContext<NetworkStatusContextValue>({
 export const useNetworkStatus = () => useContext(NetworkStatusContext);
 
 export default function NetworkStatusProvider({ children }: { children: ReactNode }) {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id as string | undefined;
   const [isOnline, setIsOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -55,13 +58,13 @@ export default function NetworkStatusProvider({ children }: { children: ReactNod
     setIsSyncing(true);
 
     try {
-      await flushOutbox();
+      await flushOutbox(currentUserId);
       await refreshPendingCount();
     } finally {
       isSyncingRef.current = false;
       setIsSyncing(false);
     }
-  }, [refreshPendingCount]);
+  }, [refreshPendingCount, currentUserId]);
 
   const handleReconnect = useCallback(async () => {
     toast.success("Back online. Syncing pending changes...", {

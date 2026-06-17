@@ -3,6 +3,7 @@
 import Image, { type ImageLoader } from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useNetworkStatus } from "@/components/offline/NetworkStatusProvider";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -30,8 +31,12 @@ const CATEGORY_OPTIONS: Array<{ value: ReportCategory; label: string }> = [
 
 const passthroughLoader: ImageLoader = ({ src }) => src;
 
+const isPhoneDevice = () =>
+  /iPhone|iPod|Android.+Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
 export default function ReportIssuePage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { isOnline } = useNetworkStatus();
   const [formState, setFormState] = useState({
     title: "",
@@ -55,6 +60,8 @@ export default function ReportIssuePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBinAutoDetected, setIsBinAutoDetected] = useState(false);
   const [isLookingUpBin, setIsLookingUpBin] = useState(false);
+  const [isPhone, setIsPhone] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const updateField = (key: keyof typeof formState, value: string) => {
     setFormState((current) => ({ ...current, [key]: value }));
@@ -106,11 +113,12 @@ export default function ReportIssuePage() {
         setFormState((current) => ({ ...current, binId: result.bin!.id }));
         setIsBinAutoDetected(true);
       } else {
-        // No nearby bin — clear any previous auto-detection
+        setFormState((current) => ({ ...current, binId: "" }));
         setIsBinAutoDetected(false);
       }
     } catch (error) {
       console.error("Nearby bin lookup failed:", error);
+      setFormState((current) => ({ ...current, binId: "" }));
       setIsBinAutoDetected(false);
     } finally {
       setIsLookingUpBin(false);
@@ -119,6 +127,10 @@ export default function ReportIssuePage() {
 
   useEffect(() => {
     requestLocation();
+  }, []);
+
+  useEffect(() => {
+    setIsPhone(isPhoneDevice());
   }, []);
 
   useEffect(() => {
@@ -228,6 +240,7 @@ export default function ReportIssuePage() {
       }
 
       await enqueueCitizenReport({
+        userId: session?.user?.id as string,
         payload: {
           title: payload.title,
           description: payload.description,
@@ -412,13 +425,31 @@ export default function ReportIssuePage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#21412f]">Upload Photo</label>
+                  <label className="mb-1 block text-sm font-semibold text-[#21412f]">
+                    {isPhone ? "Take Photo" : "Upload Photo"}
+                  </label>
                   <input
+                    ref={photoInputRef}
                     type="file"
                     accept="image/*"
-                    className="input-clean"
+                    capture={isPhone ? "environment" : undefined}
+                    className={isPhone ? "hidden" : "input-clean"}
                     onChange={handleImageChange}
                   />
+                  {isPhone && (
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      className="btn-secondary w-full"
+                    >
+                      {imagePreviewUrl ? "Retake Photo" : "Open Camera"}
+                    </button>
+                  )}
+                  {isPhone && (
+                    <p className="mt-2 text-xs text-[#5f7167]">
+                      Use your camera to capture the bin on site. Gallery uploads are not available on mobile.
+                    </p>
+                  )}
                   {isUploadingImage && (
                     <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#1a7b3a]">
                       Uploading
@@ -463,33 +494,26 @@ export default function ReportIssuePage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#21412f]">Bin ID {isBinAutoDetected ? '' : '(optional)'}</label>
-                  {isBinAutoDetected ? (
-                    <>
-                      <div className="input-clean flex items-center gap-2 text-[#2f3d33]">
-                        <span className="truncate">{formState.binId}</span>
-                        <span className="ml-auto shrink-0 rounded-full bg-[#dff0d8] px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-[#1a7b3a]">
-                          📍 Auto-detected
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-[#5f7167]">
-                        A bin was found within 20m of your location.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <input
-                        className="input-clean"
-                        placeholder="Paste bin UUID if available"
-                        value={formState.binId}
-                        onChange={(event) => updateField("binId", event.target.value)}
-                      />
-                      {isLookingUpBin && (
-                        <p className="mt-1 text-xs text-[#5f7167]">
-                          Searching for nearby bins...
-                        </p>
-                      )}
-                    </>
+                  <label className="mb-1 block text-sm font-semibold text-[#21412f]">Bin ID</label>
+                  <input
+                    readOnly
+                    className="input-clean cursor-not-allowed bg-[#f5f9f6] text-[#2f3d33]"
+                    placeholder={
+                      isLookingUpBin
+                        ? "Checking for a nearby bin..."
+                        : "Filled automatically from your location, or left blank if none is found"
+                    }
+                    value={formState.binId}
+                  />
+                  {isBinAutoDetected && (
+                    <p className="mt-1 text-xs text-[#5f7167]">
+                      A bin was found within 20m of your location.
+                    </p>
+                  )}
+                  {!isBinAutoDetected && !isLookingUpBin && formState.latitude && (
+                    <p className="mt-1 text-xs text-[#5f7167]">
+                      No nearby bin detected. You can still submit this report.
+                    </p>
                   )}
                 </div>
 
@@ -514,7 +538,7 @@ export default function ReportIssuePage() {
               <h2 className="mt-2 text-lg font-extrabold text-[#1b2a22] sm:text-xl">Help us verify quickly</h2>
               <ul className="mt-4 space-y-3 border-l-2 border-[#d6e6dc] pl-4 text-sm text-[#5d6f65]">
                 <li>Capture a clear photo that shows the bin and nearby surroundings.</li>
-                <li>The photo uploads to Cloudinary automatically after selection.</li>
+                <li>{isPhone ? "On your phone, use the camera button to take a live photo on site." : "The photo uploads to Cloudinary automatically after selection."}</li>
                 <li>Share the closest intersection or landmark in the description.</li>
               </ul>
               <p className="mt-5 border-t border-[#e6efe9] pt-4 text-sm text-[#4f6158]">

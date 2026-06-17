@@ -258,6 +258,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
 
       const queueOfflineBinUpdate = async () => {
         await enqueueBinStatus({
+          userId,
           routeId: activeRouteId,
           binId,
           status: newStatus,
@@ -334,7 +335,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       setIsCompletingRoute(true);
 
       if (!isOnline) {
-        await enqueueRouteComplete(activeRouteId);
+        await enqueueRouteComplete(userId, activeRouteId);
         await clearCompletedRoute();
         toast.info("Route completion saved offline — will sync when online.");
         return;
@@ -351,7 +352,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       toast.error(await getApiErrorMessage(res, "Unable to complete route right now."));
     } catch (error) {
       if (!isOnline || isNetworkError(error)) {
-        await enqueueRouteComplete(activeRouteId);
+        await enqueueRouteComplete(userId, activeRouteId);
         await clearCompletedRoute();
         toast.info("Route completion saved offline — will sync when online.");
         return;

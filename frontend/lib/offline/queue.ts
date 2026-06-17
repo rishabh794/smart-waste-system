@@ -34,6 +34,7 @@ export const getPendingCount = async () => {
 };
 
 export const enqueueCitizenReport = async (input: {
+  userId: string;
   payload: Omit<CreateReportPayload, "imageUrl">;
   imageBlob: Blob;
 }) => {
@@ -42,6 +43,7 @@ export const enqueueCitizenReport = async (input: {
 
   const outboxItem: OutboxItem = {
     id,
+    userId: input.userId,
     type: "citizen_report",
     createdAt,
     status: "pending",
@@ -72,6 +74,7 @@ export const enqueueCitizenReport = async (input: {
 };
 
 export const enqueueBinStatus = async (input: {
+  userId: string;
   routeId: string;
   binId: string;
   status: DriverBinStatus;
@@ -81,6 +84,7 @@ export const enqueueBinStatus = async (input: {
 }) => {
   const outboxItem: OutboxItem = {
     id: createId(),
+    userId: input.userId,
     type: "bin_status",
     createdAt: Date.now(),
     status: "pending",
@@ -98,9 +102,10 @@ export const enqueueBinStatus = async (input: {
   return outboxItem.id;
 };
 
-export const enqueueRouteComplete = async (routeId: string) => {
+export const enqueueRouteComplete = async (userId: string, routeId: string) => {
   const outboxItem: OutboxItem = {
     id: createId(),
+    userId,
     type: "route_complete",
     createdAt: Date.now(),
     status: "pending",

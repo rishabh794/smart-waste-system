@@ -1,4 +1,6 @@
-export const uploadReportImage = async (file: Blob): Promise<string> => {
+import imageCompression from 'browser-image-compression';
+
+export const uploadReportImage = async (file: Blob | File): Promise<string> => {
   const signatureRes = await fetch("/api/cloudinary/signature");
 
   if (!signatureRes.ok) {
@@ -10,15 +12,32 @@ export const uploadReportImage = async (file: Blob): Promise<string> => {
     apiKey: string;
     timestamp: number;
     folder: string;
+    allowedFormats: string;
     signature: string;
   };
 
+  let compressedFile = file;
+  if (file instanceof File) {
+    try {
+      compressedFile = await imageCompression(file, {
+        maxSizeMB: 1, // Compress to max 1MB
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+      });
+    } catch (error) {
+      console.warn("Image compression failed, using original file:", error);
+    }
+  }
+
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", compressedFile);
   formData.append("api_key", signaturePayload.apiKey);
   formData.append("timestamp", signaturePayload.timestamp.toString());
   formData.append("signature", signaturePayload.signature);
   formData.append("folder", signaturePayload.folder);
+  if (signaturePayload.allowedFormats) {
+    formData.append("allowed_formats", signaturePayload.allowedFormats);
+  }
 
   const uploadUrl = `https://api.cloudinary.com/v1_1/${signaturePayload.cloudName}/image/upload`;
   const res = await fetch(uploadUrl, {

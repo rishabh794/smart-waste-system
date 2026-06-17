@@ -1,21 +1,15 @@
 const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:5000";
 
 export const apiFetch = async (url: string, options: RequestInit = {}) => {
-  // Read the existing Express JWT from NextAuth's encrypted cookie (no re-signing).
-  const tokenRes = await fetch("/api/auth/token");
+  // Route authenticated API requests through the secure Next.js proxy
+  // to avoid exposing the backend JWT to the browser.
+  const proxyUrl = url.replace(/^\/api\//, '/api/proxy/');
 
-  if (!tokenRes.ok) {
-    throw new Error("Failed to get auth token");
-  }
-
-  const { token } = await tokenRes.json();
-
-  return fetch(`${backendBaseUrl}${url}`, {
+  return fetch(proxyUrl, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
-      Authorization: `Bearer ${token}`,
     },
   });
 };

@@ -32,6 +32,7 @@ const syncCitizenReport = async (item: Extract<OutboxItem, { type: "citizen_repo
 
   const res = await createReport({
     ...item.payload,
+    clientReportId: item.id,
     imageUrl,
   });
 
@@ -81,8 +82,12 @@ const syncRouteComplete = async (item: Extract<OutboxItem, { type: "route_comple
   toast.success("Route completion synced.");
 };
 
-export const flushOutbox = async () => {
+export const flushOutbox = async (currentUserId?: string) => {
   if (flushing || !(await isEffectivelyOnline())) {
+    return { synced: 0, stopped: true };
+  }
+
+  if (!currentUserId) {
     return { synced: 0, stopped: true };
   }
 
@@ -96,6 +101,12 @@ export const flushOutbox = async () => {
       let progressed = false;
 
       for (const item of pendingItems) {
+        if (item.userId !== currentUserId) {
+          await markOutboxItemFailed(item.id, "User mismatch: Outbox item belongs to a different user.");
+          progressed = true;
+          continue;
+        }
+
         if (item.type === "route_complete" && hasPendingBinUpdatesForRoute(pendingItems, item.routeId)) {
           continue;
         }

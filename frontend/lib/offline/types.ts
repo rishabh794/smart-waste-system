@@ -13,6 +13,7 @@ export interface BinStatusOptions {
 export type OutboxItem =
   | {
       id: string;
+      userId: string;
       type: "citizen_report";
       createdAt: number;
       status: OutboxItemStatus;
@@ -22,6 +23,7 @@ export type OutboxItem =
     }
   | {
       id: string;
+      userId: string;
       type: "bin_status";
       createdAt: number;
       status: OutboxItemStatus;
@@ -35,6 +37,7 @@ export type OutboxItem =
     }
   | {
       id: string;
+      userId: string;
       type: "route_complete";
       createdAt: number;
       status: OutboxItemStatus;
