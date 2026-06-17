@@ -26,6 +26,12 @@ export const updateReportStatus = (
   });
 };
 
+export const deleteReport = (reportId: string) => {
+  return apiFetch(`/api/reports/${reportId}`, {
+    method: "DELETE",
+  });
+};
+
 export interface NearbyBinResult {
   bin: { id: string; latitude: number; longitude: number; zone: string | null } | null;
   distance: number | null;

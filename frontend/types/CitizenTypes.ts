@@ -7,6 +7,17 @@ export type ReportCategory =
   | "illegal_dumping"
   | "general";
 
+export type AiAnalysisStatus = "pending" | "completed" | "failed";
+
+export interface ReportAiAnalysis {
+  status: AiAnalysisStatus;
+  isValidReport?: boolean | null;
+  confidenceScore?: number | null;
+  severity?: "low" | "medium" | "high" | "critical" | null;
+  category?: string | null;
+  reason?: string | null;
+}
+
 export interface CitizenReport {
   id: string;
   title: string;
@@ -24,7 +35,9 @@ export interface CitizenReport {
   resolvedByName?: string | null;
   createdAt: string;
   updatedAt: string;
+  aiAnalysis?: ReportAiAnalysis | null;
 }
+
 
 export interface CreateReportPayload {
   title: string;
