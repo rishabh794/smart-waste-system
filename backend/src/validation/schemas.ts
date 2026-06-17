@@ -151,6 +151,7 @@ export const createCityBodySchema = z.object({
 });
 
 export const createReportBodySchema = z.object({
+  clientReportId: z.string().max(255).optional(),
   binId: uuidSchema.optional(),
   title: z
     .string()

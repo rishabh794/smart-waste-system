@@ -13,9 +13,9 @@ import {
   signupBodySchema,
 } from '../validation/schemas.js';
 
-const ACCESS_TOKEN_SECRET = process.env.JWT_SECRET ?? process.env.NEXTAUTH_SECRET;
+const ACCESS_TOKEN_SECRET = process.env.JWT_SECRET;
 if (!ACCESS_TOKEN_SECRET) {
-  throw new Error('JWT_SECRET or NEXTAUTH_SECRET is not defined in environment');
+  throw new Error('JWT_SECRET is not defined in environment');
 }
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;

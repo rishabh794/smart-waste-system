@@ -10,6 +10,7 @@ export const reports = pgTable('reports', {
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   binId: uuid('bin_id').references(() => bins.id),
+  clientReportId: varchar('client_report_id', { length: 255 }).unique(),
   title: varchar('title', { length: 120 }).notNull(),
   description: text('description').notNull(),
   category: varchar('category', { length: 50 }).notNull().default('general'),

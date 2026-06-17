@@ -26,13 +26,14 @@ export const createReport = async (req: Request, res: Response): Promise<any> =>
     return res.status(400).json({ error: getValidationErrorMessage(parsedBody.error) });
   }
 
-  const { title, description, category, latitude, longitude, imageUrl, address } = parsedBody.data;
+  const { title, description, category, latitude, longitude, imageUrl, address, clientReportId } = parsedBody.data;
   const { binId } = parsedBody.data;
 
   try {
     const [newReport] = await db
       .insert(reports)
       .values({
+        clientReportId,
         userId: req.user.id,
         binId,
         title,
@@ -43,6 +44,7 @@ export const createReport = async (req: Request, res: Response): Promise<any> =>
         imageUrl,
         address,
       })
+      .onConflictDoNothing({ target: reports.clientReportId })
       .returning({
         id: reports.id,
         binId: reports.binId,
@@ -59,7 +61,35 @@ export const createReport = async (req: Request, res: Response): Promise<any> =>
         createdAt: reports.createdAt,
       });
 
-    if (!newReport) {
+    let returnedReport = newReport;
+
+    if (!returnedReport && clientReportId) {
+      const [existing] = await db
+        .select({
+          id: reports.id,
+          binId: reports.binId,
+          title: reports.title,
+          description: reports.description,
+          category: reports.category,
+          latitude: reports.latitude,
+          longitude: reports.longitude,
+          imageUrl: reports.imageUrl,
+          address: reports.address,
+          status: reports.status,
+          resolvedById: reports.resolvedById,
+          resolvedByName: reports.resolvedByName,
+          createdAt: reports.createdAt,
+        })
+        .from(reports)
+        .where(eq(reports.clientReportId, clientReportId))
+        .limit(1);
+        
+      if (existing) {
+        return res.status(200).json(existing);
+      }
+    }
+
+    if (!returnedReport) {
       return res.status(500).json({ error: 'Failed to create report' });
     }
 
@@ -67,21 +97,21 @@ export const createReport = async (req: Request, res: Response): Promise<any> =>
     if (aiQueue) {
       aiQueue.add(
         'analyze-image', 
-        { reportId: newReport.id, imageUrl },
+        { reportId: returnedReport.id, imageUrl },
         { 
           attempts: 3, 
           backoff: { type: 'fixed', delay: 5 * 60 * 1000 } // 5 minutes 
         }
       ).catch((err) => {
-        console.error(`[AI] Failed to add job to queue for report ${newReport.id}:`, err);
+        console.error(`[AI] Failed to add job to queue for report ${returnedReport.id}:`, err);
       });
     } else {
-      processAiAnalysisJob(newReport.id, imageUrl).catch((err) =>
-        console.error(`[AI] Background analysis failed for report ${newReport.id}:`, err)
+      processAiAnalysisJob(returnedReport.id, imageUrl).catch((err) =>
+        console.error(`[AI] Background analysis failed for report ${returnedReport.id}:`, err)
       );
     }
 
-    return res.status(201).json(newReport);
+    return res.status(201).json(returnedReport);
   } catch (error) {
     console.error('Create report error:', error);
     return res.status(500).json({ error: 'Failed to submit report' });

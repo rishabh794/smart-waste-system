@@ -7,10 +7,11 @@ import {
   deleteReport,
 } from '../controllers/reports.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
+import { reportCreationLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-router.post('/', requireAuth, createReport);
+router.post('/', requireAuth, reportCreationLimiter, createReport);
 router.get('/mine', requireAuth, getMyReports);
 router.get('/', requireAdmin, getAllReports);
 router.patch('/:reportId/status', requireAdmin, updateReportStatus);
