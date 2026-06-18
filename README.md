@@ -35,7 +35,9 @@ The system is built as a monorepo with a Next.js frontend and an Express + Drizz
 - React 19
 - TypeScript
 - Tailwind CSS 4
-- NextAuth.js (credentials-based login)
+- NextAuth.js (Credentials & Google OAuth)
+- Serwist (PWA offline support & background sync)
+- IndexedDB (Offline data persistence)
 - SWR for polling and cache revalidation
 - Leaflet + React Leaflet for map rendering
 - OSRM integration for route optimization path display
@@ -47,6 +49,11 @@ The system is built as a monorepo with a Next.js frontend and an Express + Drizz
 - TypeScript
 - Drizzle ORM + Drizzle Kit
 - PostgreSQL (pg driver)
+- Redis + BullMQ (Background job processing)
+- Cloudinary (Image storage)
+- Google Auth Library (OAuth token verification)
+- Gemini API (AI-powered analytics)
+- Express Rate Limit (API security)
 - bcrypt for password hashing
 - jsonwebtoken for token verification
 - CORS + dotenv
@@ -69,13 +76,16 @@ smart-waste-system/
 
 ## Core Features
 
-- Credentials-based authentication with role-aware sessions.
+- PWA Support & Offline Mode: Fully functional offline capabilities with IndexedDB state persistence and background sync.
+- Authentication: Credentials and Google OAuth authentication with role-aware sessions.
 - Protected pages with role checks for admin-only sections.
 - Admin map view with current bin states.
 - Route dispatch workflow with bin locking on active routes.
 - Driver route screen with per-stop status updates.
+- Photo Uploads: Cloudinary integration for capturing proof of waste collection.
 - Route completion guard that blocks closure until all bins are resolved.
 - Live admin status panel for pending route progress.
+- Background Processing: BullMQ for handling async tasks and background queues reliably.
 - Driver and bin creation from admin workspace.
 - Consistent button loading states on async user actions.
 
@@ -84,6 +94,10 @@ smart-waste-system/
 - Node.js 20+
 - npm 10+
 - PostgreSQL 14+
+- Redis Server (for BullMQ)
+- Cloudinary Account (for image uploads)
+- Google Cloud Console Project (for OAuth)
+- Gemini API Key (for AI features)
 
 ## Installation
 
@@ -99,27 +113,55 @@ npm install
 
 ## Environment Variables
 
-Create the following files.
+Copy the example configuration files and update the values.
 
 ### backend/.env
 
+```bash
+cp backend/.env.example backend/.env
+```
+
 ```env
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/smart_waste
+# Database configuration
+DATABASE_URL="postgresql://user:password@host:port/dbname?sslmode=require"
 PORT=5000
-NEXTAUTH_SECRET=replace_with_a_strong_shared_secret
+
+# Authentication
+JWT_SECRET="your_super_secret_jwt_string_here"
+
+# Google OAuth
+GOOGLE_CLIENT_ID="your_google_client_id_here"
+GOOGLE_CLIENT_SECRET="your_google_client_secret_here"
+
+# File Storage
+CLOUDINARY_URL="cloudinary://api_key:api_secret@cloud_name"
+
+# AI
+GEMINI_API_KEY="your_gemini_api_key_here"
+
+# Redis
+REDIS_URL="rediss://default:password@host:port"
 ```
 
 ### frontend/.env.local
 
+```bash
+cp frontend/.env.example frontend/.env.local
+```
+
 ```env
-NEXTAUTH_SECRET=replace_with_the_same_shared_secret_as_backend
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your_nextauth_secret_here"
+GOOGLE_CLIENT_ID="your_google_client_id_here"
+GOOGLE_CLIENT_SECRET="your_google_client_secret_here"
+NEXT_PUBLIC_BACKEND_URL="http://localhost:5000"
+CLOUDINARY_URL="cloudinary://api_key:api_secret@cloud_name"
 ```
 
 Notes:
 
-- `NEXTAUTH_SECRET` must be the same in frontend and backend because the frontend signs tokens that the backend verifies.
-- Backend API host is currently referenced as `http://localhost:5000` in frontend API utilities and NextAuth authorize flow.
+- NextAuth secrets and OAuth credentials should be properly matching between environments.
+- Backend API host is referenced via `NEXT_PUBLIC_BACKEND_URL` in the frontend API utilities.
 
 ## Database Setup
 
@@ -178,27 +220,53 @@ If you run the seed script, these accounts are created:
 
 Base URL: `/api`
 
-Authentication:
+### Authentication (`/auth`)
 
-- `POST /auth/login`
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| POST | `/auth/login` | Authenticate user via credentials | Public |
 
-Bins (admin):
+### Bins (`/bins`)
 
-- `GET /bins`
-- `POST /bins`
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| GET | `/bins` | Retrieve all bins | Admin |
+| POST | `/bins` | Create a new bin | Admin |
 
-Routes:
+### Routes (`/routes`)
 
-- `GET /routes/driver/:driverId` (authenticated)
-- `PATCH /routes/:routeId/bins/:binId/status`
-- `POST /routes` (admin)
-- `PATCH /routes/:routeId/status`
-- `GET /routes/pending` (admin)
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| GET | `/routes/driver/:driverId` | Get routes for a specific driver | Authenticated |
+| PATCH | `/routes/:routeId/bins/:binId/status` | Update bin status in a route | Authenticated |
+| POST | `/routes` | Create and dispatch a new route | Admin |
+| PATCH | `/routes/:routeId/status` | Update overall route status | Authenticated |
+| GET | `/routes/pending` | Get all pending routes | Admin |
 
-Users (admin):
+### Users (`/users`)
 
-- `GET /users/drivers`
-- `POST /users/drivers`
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| GET | `/users/drivers` | Get list of all drivers | Admin |
+| POST | `/users/drivers` | Register a new driver | Admin |
+
+### Cities (`/cities`)
+
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| GET | `/cities` | Retrieve all cities | Admin |
+| POST | `/cities` | Create a new city | Admin |
+| DELETE | `/cities/:cityId` | Delete a specific city | Admin |
+
+### Reports (`/reports`)
+
+| Method | Endpoint | Description | Access |
+|---|---|---|---|
+| POST | `/reports` | Create a new report | Authenticated |
+| GET | `/reports/mine` | Get current user's reports | Authenticated |
+| GET | `/reports` | Retrieve all reports | Admin |
+| PATCH | `/reports/:reportId/status` | Update a report's status | Admin |
+| DELETE | `/reports/:reportId` | Delete a specific report | Authenticated |
 
 ## Available Scripts
 
