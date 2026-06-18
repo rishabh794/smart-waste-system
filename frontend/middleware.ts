@@ -16,7 +16,7 @@ const startsWithAny = (pathname: string, prefixes: string[]) => {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 };
 
-export async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const role = (token?.role as string | undefined) ?? "";

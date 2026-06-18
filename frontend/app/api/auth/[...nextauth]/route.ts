@@ -111,7 +111,12 @@ const handler = NextAuth({
     },
     async jwt({ token, user, account }) {
       if (account?.provider === "google") {
-        const googleAuth = (account as GoogleAccountWithAuth).googleAuth;
+        let googleAuth = (account as GoogleAccountWithAuth).googleAuth;
+        
+        if (!googleAuth && account.id_token) {
+          googleAuth = await exchangeGoogleToken(account.id_token);
+        }
+
         if (!googleAuth) {
           throw new Error("Missing Google auth payload");
         }
