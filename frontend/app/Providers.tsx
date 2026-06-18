@@ -8,7 +8,7 @@ import InstallPrompt from "@/components/pwa/InstallPrompt";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <SessionProvider refetchOnWindowFocus={false} refetchWhenOffline={false}>
       <NetworkStatusProvider>
         <PendingSyncBadge />
         {children}
