@@ -10,8 +10,6 @@ async function proxyRequest(req: NextRequest, context: { params: { path: string[
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Await the params in Next.js 15+ or App Router, though it's technically a promise in newest Next.js
-  // Depending on version, params might be an object or a promise. We'll handle it assuming Next.js 13/14 pattern.
   const params = await context.params;
   const path = params?.path?.join("/") || "";
   const url = new URL(req.url);
