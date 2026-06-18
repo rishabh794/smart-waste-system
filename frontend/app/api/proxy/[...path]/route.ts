@@ -3,7 +3,7 @@ import { getToken } from "next-auth/jwt";
 
 const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:5000";
 
-async function proxyRequest(req: NextRequest, context: { params: { path: string[] } }) {
+async function proxyRequest(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
   if (!token || typeof token.accessToken !== "string" || token.accessToken.length === 0) {
