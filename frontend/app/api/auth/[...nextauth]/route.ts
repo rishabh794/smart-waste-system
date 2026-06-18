@@ -10,7 +10,7 @@ if (!googleClientId || !googleClientSecret) {
   throw new Error("GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is not defined in environment");
 }
 
-const backendBaseUrl = process.env.BACKEND_URL ?? "http://localhost:5000";
+const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || "http://localhost:5000";
 
 type GoogleAuthResponse = {
   id: string;
@@ -59,7 +59,7 @@ const handler = NextAuth({
           return null;
         }
 
-        const res = await fetch("http://localhost:5000/api/auth/login", {
+        const res = await fetch(`${backendBaseUrl}/api/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(parsedCredentials.data),
