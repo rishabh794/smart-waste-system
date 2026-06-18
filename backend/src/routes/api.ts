@@ -8,6 +8,10 @@ import cityRoutes from './cities.js';
 
 const router = Router();
 
+router.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Smart Waste System API is running' });
+});
+
 router.use('/auth', authRoutes);
 router.use('/bins', binRoutes);
 router.use('/routes', routeRoutes);
