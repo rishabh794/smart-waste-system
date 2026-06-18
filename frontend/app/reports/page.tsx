@@ -14,7 +14,7 @@ import { isBrowserOnline } from "@/lib/offline/network";
 import { getOutboxItem, listPendingReports } from "@/lib/offline/queue";
 import { fetchMyReports, USER_REPORTS_KEY, deleteReport } from "@/lib/services/reportService";
 import { formatReportCategory, formatReportDateTime, STATUS_STYLES } from "@/lib/reportDisplay";
-import type { CitizenReport } from "@/types/CitizenTypes";
+import type { CitizenReport, PaginatedResponse } from "@/types/CitizenTypes";
 import type { PendingCitizenReport } from "@/lib/offline/types";
 
 const passthroughLoader: ImageLoader = ({ src }) => src;
@@ -29,14 +29,55 @@ export default function ReportsPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
+  const [view, setView] = useState<"active" | "rejected">("active");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const handleViewChange = (newView: "active" | "rejected") => {
+    setView(newView);
+    setCurrentPage(1);
+  };
+
+  const getQueryString = (baseLimit: number, baseStatus: string) => {
+    const params = new URLSearchParams();
+    params.set("limit", baseLimit.toString());
+    params.set("status", baseStatus);
+    if (currentPage > 1) params.set("page", currentPage.toString());
+    return params.toString();
+  };
+
+  // Active SWR
   const {
-    data: reports,
-    error,
-    isLoading,
-    mutate,
-  } = useSWR<CitizenReport[]>(USER_REPORTS_KEY, fetchMyReports, {
-    revalidateOnFocus: false,
-  });
+    data: activeResponse,
+    error: activeError,
+    isLoading: isActiveLoading,
+    mutate: mutateActive,
+  } = useSWR<PaginatedResponse<CitizenReport[]>>(
+    view === "active" ? `${USER_REPORTS_KEY}?${getQueryString(5, "submitted,in_review,resolved")}` : null,
+    fetchMyReports,
+    { revalidateOnFocus: false }
+  );
+
+  // Rejected SWR
+  const {
+    data: rejectedResponse,
+    error: rejectedError,
+    isLoading: isRejectedLoading,
+    mutate: mutateRejected,
+  } = useSWR<PaginatedResponse<CitizenReport[]>>(
+    view === "rejected" ? `${USER_REPORTS_KEY}?${getQueryString(5, "rejected")}` : null,
+    fetchMyReports,
+    { revalidateOnFocus: false }
+  );
+
+  const reports = view === "active" ? activeResponse?.data : rejectedResponse?.data;
+  const pagination = view === "active" ? activeResponse?.pagination : rejectedResponse?.pagination;
+  const error = view === "active" ? activeError : rejectedError;
+  const isLoading = view === "active" ? isActiveLoading : isRejectedLoading;
+
+  const mutate = () => {
+    if (view === "active") void mutateActive();
+    if (view === "rejected") void mutateRejected();
+  };
 
   const loadPendingReports = async () => {
     const pending = await listPendingReports();
@@ -93,7 +134,7 @@ export default function ReportsPage() {
   }, [pendingReports]);
 
   const showServerError = Boolean(error) && isBrowserOnline();
-  const hasNoReports = !isLoading && !showServerError && !reports?.length && pendingReports.length === 0;
+  const hasNoReports = !isLoading && !showServerError && !reports?.length && (view === "rejected" || pendingReports.length === 0);
 
   const handleDelete = async (reportId: string) => {
     setIsDeletingId(reportId);
@@ -128,7 +169,30 @@ export default function ReportsPage() {
             }
           />
 
-          {isLoading && !reports && pendingReports.length === 0 && (
+          <div className="mb-6 flex flex-wrap bg-[#f6faf7] p-1 rounded-lg border border-[#e4ece6] sm:w-fit">
+            <button
+              onClick={() => handleViewChange("active")}
+              className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${
+                view === "active"
+                  ? "bg-white text-[#1a6a3a] shadow-sm border border-[#dce9e1]"
+                  : "text-[#607267] hover:text-[#1d3025]"
+              }`}
+            >
+              Active Reports
+            </button>
+            <button
+              onClick={() => handleViewChange("rejected")}
+              className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${
+                view === "rejected"
+                  ? "bg-white text-[#1a6a3a] shadow-sm border border-[#dce9e1]"
+                  : "text-[#607267] hover:text-[#1d3025]"
+              }`}
+            >
+              Rejected Reports
+            </button>
+          </div>
+
+          {isLoading && !reports && (view === "rejected" || pendingReports.length === 0) && (
             <DataLoadingState
               title="Loading reports"
               subtitle="Fetching your submitted issues and statuses."
@@ -158,7 +222,7 @@ export default function ReportsPage() {
           )}
 
           <div className="grid gap-5">
-            {pendingReports.map((report) => (
+            {view === "active" && pendingReports.map((report) => (
               <article
                 key={report.id}
                 className="soft-surface rounded-2xl border border-[#f0dfb2] p-4 sm:p-5"
@@ -335,6 +399,27 @@ export default function ReportsPage() {
               );
             })}
           </div>
+          {pagination && pagination.totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-between border-t border-[#e4ece6] pt-6">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="btn-secondary disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm font-medium text-[#4f6158]">
+                Page {currentPage} of {pagination.totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
+                disabled={currentPage === pagination.totalPages}
+                className="btn-secondary disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
     </ProtectedRoute>

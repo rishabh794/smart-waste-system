@@ -1,13 +1,13 @@
 import { apiFetch } from "@/lib/apiFetch";
 import { fetchApiJson } from "@/lib/services/apiService";
-import type { AdminReport, CitizenReport, CreateReportPayload, ReportStatus } from "@/types/CitizenTypes";
+import type { AdminReport, CitizenReport, CreateReportPayload, ReportStatus, PaginatedResponse } from "@/types/CitizenTypes";
 
 export const USER_REPORTS_KEY = "/api/reports/mine";
 export const ADMIN_REPORTS_KEY = "/api/reports";
 
-export const fetchMyReports = (url: string) => fetchApiJson<CitizenReport[]>(url);
+export const fetchMyReports = (url: string) => fetchApiJson<PaginatedResponse<CitizenReport[]>>(url);
 
-export const fetchAllReports = (url: string) => fetchApiJson<AdminReport[]>(url);
+export const fetchAllReports = (url: string) => fetchApiJson<PaginatedResponse<AdminReport[]>>(url);
 
 export const createReport = (payload: CreateReportPayload) => {
   return apiFetch("/api/reports", {

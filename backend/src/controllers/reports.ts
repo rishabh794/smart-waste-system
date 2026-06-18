@@ -1,12 +1,13 @@
 import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
 import { reports, reportAiAnalyses, users } from '../db/schema/index.js';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, inArray, sql, ilike, and, or, asc } from 'drizzle-orm';
 import {
   createReportBodySchema,
   getValidationErrorMessage,
   reportIdParamsSchema,
   updateReportStatusBodySchema,
+  reportQuerySchema,
 } from '../validation/schemas.js';
 import { updateReportStatusWithActor } from '../services/reportStatus.js';
 import { processAiAnalysisJob } from '../services/aiAnalysis.js';
@@ -127,7 +128,48 @@ export const getMyReports = async (req: Request, res: Response): Promise<any> =>
     return res.status(403).json({ error: 'Only citizen users can view this resource' });
   }
 
+  const parsedQuery = reportQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedQuery.error) });
+  }
+
+  const { page, limit, status, search, category, sort } = parsedQuery.data;
+  const offset = (page - 1) * limit;
+
+  const statusArray = status ? status.split(',').map((s) => s.trim()) : [];
+  
+  const conditions = [eq(reports.userId, req.user.id)];
+  if (statusArray.length > 0) {
+    conditions.push(inArray(reports.status, statusArray as any));
+  }
+  if (category && category !== 'all') {
+    conditions.push(eq(reports.category, category as any));
+  }
+  if (search) {
+    conditions.push(
+      or(
+        ilike(reports.title, `%${search}%`),
+        ilike(reports.description, `%${search}%`),
+        ilike(reports.address, `%${search}%`)
+      )!
+    );
+  }
+
+  const whereClause = and(...conditions);
+  let orderByClause: any = desc(reports.createdAt);
+  if (sort === 'oldest') {
+    orderByClause = asc(reports.createdAt);
+  }
+
   try {
+    const [totalCountResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(reports)
+      .where(whereClause);
+      
+    const total = Number(totalCountResult?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
     const rows = await db
       .select({
         id: reports.id,
@@ -155,8 +197,10 @@ export const getMyReports = async (req: Request, res: Response): Promise<any> =>
       })
       .from(reports)
       .leftJoin(reportAiAnalyses, eq(reports.id, reportAiAnalyses.reportId))
-      .where(eq(reports.userId, req.user.id))
-      .orderBy(desc(reports.createdAt));
+      .where(whereClause)
+      .orderBy(orderByClause)
+      .limit(limit)
+      .offset(offset);
 
     const myReports = rows.map(({ aiStatus, aiIsValidReport, aiConfidenceScore, aiSeverity, aiCategory, aiReason, ...report }) => ({
       ...report,
@@ -165,7 +209,15 @@ export const getMyReports = async (req: Request, res: Response): Promise<any> =>
         : null,
     }));
 
-    return res.status(200).json(myReports);
+    return res.status(200).json({
+      data: myReports,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    });
   } catch (error) {
     console.error('Get my reports error:', error);
     return res.status(500).json({ error: 'Failed to fetch reports' });
@@ -177,7 +229,52 @@ export const getAllReports = async (req: Request, res: Response): Promise<any> =
     return res.status(403).json({ error: 'Forbidden: Admin access required' });
   }
 
+  const parsedQuery = reportQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedQuery.error) });
+  }
+
+  const { page, limit, status, search, category, sort } = parsedQuery.data;
+  const offset = (page - 1) * limit;
+
+  // Split status query like "?status=pending,in_review"
+  const statusArray = status ? status.split(',').map((s) => s.trim()) : [];
+  
+  const conditions = [];
+  if (statusArray.length > 0) {
+    conditions.push(inArray(reports.status, statusArray as any));
+  }
+  if (category && category !== 'all') {
+    conditions.push(eq(reports.category, category as any));
+  }
+  if (search) {
+    conditions.push(
+      or(
+        ilike(reports.title, `%${search}%`),
+        ilike(reports.description, `%${search}%`),
+        ilike(reports.address, `%${search}%`),
+        ilike(users.name, `%${search}%`),
+        ilike(users.email, `%${search}%`)
+      )!
+    );
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  let orderByClause: any = desc(reports.createdAt);
+  if (sort === 'oldest') {
+    orderByClause = asc(reports.createdAt);
+  }
+
   try {
+    const [totalCountResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(reports)
+      .leftJoin(users, eq(reports.userId, users.id))
+      .where(whereClause);
+
+    const total = Number(totalCountResult?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
     const rows = await db
       .select({
         id: reports.id,
@@ -206,9 +303,12 @@ export const getAllReports = async (req: Request, res: Response): Promise<any> =
         aiReason: reportAiAnalyses.reason,
       })
       .from(reports)
-      .innerJoin(users, eq(reports.userId, users.id))
+      .leftJoin(users, eq(reports.userId, users.id))
       .leftJoin(reportAiAnalyses, eq(reports.id, reportAiAnalyses.reportId))
-      .orderBy(desc(reports.createdAt));
+      .where(whereClause)
+      .orderBy(orderByClause)
+      .limit(limit)
+      .offset(offset);
 
     const allReports = rows.map(({ aiStatus, aiIsValidReport, aiConfidenceScore, aiSeverity, aiCategory, aiReason, ...report }) => ({
       ...report,
@@ -217,7 +317,15 @@ export const getAllReports = async (req: Request, res: Response): Promise<any> =
         : null,
     }));
 
-    return res.status(200).json(allReports);
+    return res.status(200).json({
+      data: allReports,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    });
   } catch (error) {
     console.error('Get all reports error:', error);
     return res.status(500).json({ error: 'Failed to fetch reports' });
