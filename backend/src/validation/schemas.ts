@@ -292,6 +292,15 @@ export const nearbyBinQuerySchema = z.object({
     .max(180, 'Longitude must be between -180 and 180.'),
 });
 
+export const reportQuerySchema = z.object({
+  page: z.coerce.number().min(1, 'Page must be at least 1.').optional().default(1),
+  limit: z.coerce.number().min(1, 'Limit must be at least 1.').max(500, 'Limit cannot exceed 500.').optional().default(50),
+  status: z.string().optional(),
+  search: z.string().optional(),
+  category: z.string().optional(),
+  sort: z.string().optional(),
+});
+
 export const getValidationErrorMessage = (error: z.ZodError) => {
   return error.issues[0]?.message ?? 'Invalid request payload.';
 };

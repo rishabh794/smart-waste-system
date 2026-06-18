@@ -21,8 +21,8 @@ export default function LoginGatewayPage() {
   return (
     <div className="site-container py-10 sm:py-14">
       <div className="mx-auto max-w-3xl">
-        <p className="section-eyebrow text-center">Smart Waste System</p>
-        <h1 className="mt-2 text-center text-4xl font-extrabold text-[#1b2a22]">Sign in to SmartWaste</h1>
+        <p className="section-eyebrow text-center">EcoSync</p>
+        <h1 className="mt-2 text-center text-4xl font-extrabold text-[#1b2a22]">Sign in to EcoSync</h1>
         <p className="mt-3 text-center text-sm text-[#607267]">
           Choose how you use the platform. Your account type is set when you register or are invited.
         </p>

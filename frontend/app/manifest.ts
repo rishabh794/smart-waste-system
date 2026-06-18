@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Smart Waste System",
-    short_name: "Smart Waste",
+    name: "EcoSync",
+    short_name: "EcoSync",
     description: "Route optimization and bin tracking for citizens and drivers",
     start_url: "/dashboard",
     display: "standalone",

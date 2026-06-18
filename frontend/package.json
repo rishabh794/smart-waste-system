@@ -12,6 +12,7 @@
     "@mapbox/polyline": "^1.2.1",
     "@serwist/next": "^9.5.11",
     "browser-image-compression": "^2.0.2",
+    "framer-motion": "^12.40.0",
     "idb": "^8.0.3",
     "jsonwebtoken": "^9.0.3",
     "leaflet": "^1.9.4",
