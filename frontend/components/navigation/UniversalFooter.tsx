@@ -45,10 +45,10 @@ export default function UniversalFooter() {
         <section className="grid gap-8 border-b border-[#313d36] py-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
           <div>
             <Link href="/" className="inline-flex items-center gap-2 text-2xl font-extrabold tracking-tight text-white">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#4b6a58] bg-[#1b3528] text-[#9ad2ae]">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#1b6f3f] to-[#124d2b] shadow-sm text-[#e8f4ec]">
                 <FooterIcon />
               </span>
-              <span>SmartWaste.</span>
+              <span>EcoSync.</span>
             </Link>
             <p className="mt-4 max-w-md text-sm leading-7 text-[#a4b4ab]">
               Because cleaner cities need synchronized dispatch, collection, and route completion.
@@ -98,7 +98,7 @@ export default function UniversalFooter() {
         </section>
 
         <section className="flex flex-col gap-3 py-4 text-xs text-[#8fa59a] sm:flex-row sm:items-center sm:justify-between">
-          <p>{`© ${year} SmartWaste System.`}</p>
+          <p>{`© ${year} EcoSync.`}</p>
           <div className="flex items-center gap-4">
             <Link href="#" className="transition hover:text-[#d8f0e0]">Support</Link>
             <Link href="#" className="transition hover:text-[#d8f0e0]">Privacy Policy</Link>
@@ -112,28 +112,10 @@ export default function UniversalFooter() {
 
 function FooterIcon() {
   return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
-      <path
-        d="M5.8 7.5L10 5.1L14.2 7.5V12.5L10 14.9L5.8 12.5V7.5Z"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M5.8 7.5L10 9.9L14.2 7.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10 10V14.9"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+      <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 14L12 10L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 22V10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

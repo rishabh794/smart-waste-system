@@ -5,12 +5,12 @@ import UniversalNavbar from "../components/navigation/UniversalNavbar";
 import UniversalFooter from "../components/navigation/UniversalFooter";
 
 export const metadata = {
-  title: "Smart Waste System",
+  title: "EcoSync",
   description: "Route optimization and bin tracking",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Smart Waste",
+    title: "EcoSync",
   },
 };
 

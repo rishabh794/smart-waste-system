@@ -1,2 +1,2 @@
-export const CITIZEN_HERO_IMAGE = "/images/citizen-hero.jpg";
-export const CITIZEN_HERO_ALT = "Color-coded recycling bins on a city sidewalk";
+export const CITIZEN_HERO_IMAGE = "/images/citizen_reporting_bin.png";
+export const CITIZEN_HERO_ALT = "Citizen taking a photo of an issue to report";

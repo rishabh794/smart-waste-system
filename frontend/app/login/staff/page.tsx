@@ -13,7 +13,7 @@ export default function StaffLoginPage() {
       title="Operations Sign In"
       description="Access your role-based dashboard to assign routes, track progress, and manage city waste collection activities."
     >
-      <p className="section-eyebrow">Smart Waste System</p>
+      <p className="section-eyebrow">EcoSync</p>
       <h2 className="mt-2 text-3xl font-extrabold text-[#1b2a22]">Staff Sign In</h2>
       <p className="mt-1 text-sm text-[#607267]">
         Use the email and password provided by your administrator.

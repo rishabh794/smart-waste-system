@@ -61,7 +61,7 @@ export default function InstallPrompt() {
 
   return (
     <div className="fixed inset-x-4 bottom-20 z-50 rounded-2xl border border-[#bfd5c5] bg-[#f8fcf9] p-4 shadow-lg lg:bottom-6 lg:left-auto lg:right-6 lg:max-w-sm">
-      <p className="text-sm font-extrabold text-[#1d3025]">Install Smart Waste</p>
+      <p className="text-sm font-extrabold text-[#1d3025]">Install EcoSync</p>
       <p className="mt-1 text-sm text-[#5f7167]">
         Add to your home screen for faster access and offline support in the field.
       </p>

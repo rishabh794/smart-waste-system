@@ -45,7 +45,7 @@ function CitizenLoginContent() {
       description="Report neighborhood bin issues, upload evidence, and track resolutions from your secure profile."
       gradient="linear-gradient(90deg, rgba(17,63,38,0.85), rgba(17,63,38,0.45))"
     >
-      <p className="section-eyebrow">Smart Waste System</p>
+      <p className="section-eyebrow">EcoSync</p>
       <h2 className="mt-2 text-3xl font-extrabold text-[#1b2a22]">Sign In</h2>
       <p className="mt-1 text-sm text-[#607267]">Use Google or your citizen account email.</p>
 

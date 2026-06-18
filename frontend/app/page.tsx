@@ -1,259 +1,174 @@
 import Link from "next/link";
 import Image from "next/image";
+import AnimatedHeroText from "@/components/home/AnimatedHeroText";
+import HeroAmbientAnimation from "@/components/home/HeroAmbientAnimation";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions);
+
+  if (session) {
+    redirect("/dashboard");
+  }
+
   return (
-    <main className="bg-[#f1f8f3]">
-      <section className="site-container py-16 lg:py-20">
-        <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div>
-            <p className="section-eyebrow">City Waste Operations Platform</p>
-            <h1 className="section-title mt-3">
-              Cleaner Streets Through
-              <br />
-              Coordinated Waste Collection
-            </h1>
-            <p className="section-subtitle max-w-xl">
-              Citizens report bin issues, drivers complete collection routes, and administrators
-              coordinate the entire operation from one unified platform.
-            </p>
+    <main className="bg-[#f8fcf9] text-[#1b2a22]">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden pt-16 pb-20 sm:pt-20 sm:pb-24 lg:pt-32 lg:pb-40">
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&w=1920"
+            alt="Clean eco background"
+            fill
+            className="object-cover opacity-15"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#f8fcf9]/70 to-[#f8fcf9]" />
+        </div>
 
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link href="/signup" className="btn-primary">
-                Report an Issue
-              </Link>
-              <Link href="/login/staff" className="btn-secondary">
-                Staff Login
-              </Link>
-              <a href="#steps" className="btn-secondary">
-                View Workflow
-              </a>
-            </div>
+        <HeroAmbientAnimation />
 
-            <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-[#e4ece6] pt-5 text-sm">
-              <div>
-                <p className="text-2xl font-extrabold text-[#197443]">10+</p>
-                <p className="text-[#61736a]">Seeded Bins</p>
-              </div>
-              <div className="h-10 w-px bg-[#dbe5de]" />
-              <div>
-                <p className="text-2xl font-extrabold text-[#197443]">3+</p>
-                <p className="text-[#61736a]">Available Drivers</p>
-              </div>
-              <div className="h-10 w-px bg-[#dbe5de]" />
-              <div>
-                <p className="text-2xl font-extrabold text-[#197443]">Live</p>
-                <p className="text-[#61736a]">Status Monitoring</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative overflow-hidden rounded-2xl border border-[#dfebe3] bg-[#f7fbf8] p-3">
-            <Image
-              src="https://images.pexels.com/photos/18216395/pexels-photo-18216395.jpeg?auto=compress&cs=tinysrgb&w=1600"
-              alt="Workers and truck at a waste sorting plant"
-              width={1000}
-              height={650}
-              className="h-105 w-full rounded-xl object-cover"
-              priority
-            />
-            <div className="absolute bottom-8 left-7 rounded-md bg-[#f5faf6]/90 px-4 py-3 shadow-md backdrop-blur">
-              <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#197443]">Daily Dispatch</p>
-              <p className="mt-1 text-sm font-semibold text-[#2a4235]">Smart routes for faster collection cycles</p>
-            </div>
-          </div>
+        <div className="site-container relative z-10">
+          <AnimatedHeroText />
         </div>
       </section>
 
-      <section id="features" className="border-y border-[#e6efe9] bg-[#f8fcf9] py-14">
-        <div className="site-container grid gap-8 lg:grid-cols-3">
-          <article>
-            <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-[#e8f5ed]">
-              <svg className="h-6 w-6 text-[#197443]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4m0 18l4 0a2 2 0 002-2m-6 2V9m6 12l4 0a2 2 0 002-2m-6 2V9m-6 0h.01M9 3h.01M15 3h.01M21 21H3" />
-              </svg>
+      {/* For Citizens Section */}
+      <section id="citizens" className="border-t border-[#e6efe9] bg-white py-16 lg:py-24 transition-all duration-500 hover:bg-[#fafdfb]">
+        <div className="site-container grid gap-8 lg:gap-12 lg:grid-cols-2 lg:items-center">
+          <div className="order-2 lg:order-1">
+            <div className="overflow-hidden rounded-3xl shadow-sm">
+              <Image
+                src="https://images.pexels.com/photos/32246634/pexels-photo-32246634.jpeg?auto=compress&cs=tinysrgb&w=1200"
+                alt="Citizens reporting waste"
+                width={800} height={600}
+                className="w-full object-cover transition-transform duration-700 hover:scale-105"
+              />
             </div>
-            <p className="section-eyebrow">Live Map Visibility</p>
-            <p className="mt-3 text-sm leading-6 text-[#5d6f65]">
-              Monitor bin locations, assignment locks, and current statuses directly on the map.
+          </div>
+          <div className="order-1 lg:order-2">
+            <p className="text-xs sm:text-sm font-black uppercase tracking-widest text-[#197443]">For Citizens</p>
+            <h2 className="mt-3 sm:mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">Your Voice Keeps the Neighborhood Clean</h2>
+            <p className="mt-4 sm:mt-6 text-base sm:text-lg text-[#4f6158] leading-relaxed">
+              Notice an overflowing bin or an illegal dump? EcoSync empowers you to report issues in seconds. Just snap a photo, and we automatically capture your location to dispatch the nearest available driver.
             </p>
-          </article>
-          <article>
-            <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-[#e8f5ed]">
-              <svg className="h-6 w-6 text-[#197443]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <p className="section-eyebrow">Route Progress Tracking</p>
-            <p className="mt-3 text-sm leading-6 text-[#5d6f65]">
-              View pending operations and completion readiness by driver and route.
-            </p>
-          </article>
-          <article>
-            <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-[#e8f5ed]">
-              <svg className="h-6 w-6 text-[#197443]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-            </div>
-            <p className="section-eyebrow">Driver Field Updates</p>
-            <p className="mt-3 text-sm leading-6 text-[#5d6f65]">
-              Drivers update collection outcomes in real time for immediate status synchronization.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section className="site-container py-16">
-        <div className="grid gap-12 lg:grid-cols-[1fr_1fr] lg:items-center">
-          <div>
-            <p className="section-eyebrow">Waste Segregation 101</p>
-            <h2 className="section-title mt-3">Proper Sorting Is The Foundation</h2>
-            <p className="section-subtitle max-w-lg">
-              Effective waste management begins at the source. Segregation ensures recyclables
-              reach processing facilities, organic waste composts properly, and hazardous materials
-              are handled safely. Your platform enables drivers to understand collection priorities.
-            </p>
-
-            <ul className="mt-8 space-y-4 border-l-2 border-[#dfe9e3] pl-5">
-              <li>
-                <p className="font-semibold text-[#1d3025]">Organic & Compostables</p>
-                <p className="text-sm text-[#5e7066]">Food waste and biodegradable materials for composting programs.</p>
+            <ul className="mt-8 space-y-4 text-[#4f6158]">
+              <li className="flex items-start gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8f4ec] text-[#197443] font-bold text-xs">1</span>
+                <span><strong className="text-[#1b2a22]">Snap & Send:</strong> No long forms. Take a photo and we do the rest.</span>
               </li>
-              <li>
-                <p className="font-semibold text-[#1d3025]">Recyclables</p>
-                <p className="text-sm text-[#5e7066]">Paper, cardboard, plastics, and metals routed to recovery facilities.</p>
+              <li className="flex items-start gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8f4ec] text-[#197443] font-bold text-xs">2</span>
+                <span><strong className="text-[#1b2a22]">Track Resolution:</strong> See when your report is assigned, in-progress, and resolved.</span>
               </li>
-              <li>
-                <p className="font-semibold text-[#1d3025]">Inert & Sanitary</p>
-                <p className="text-sm text-[#5e7066]">Construction debris and non-recyclables requiring landfill management.</p>
+              <li className="flex items-start gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#e8f4ec] text-[#197443] font-bold text-xs">3</span>
+                <span><strong className="text-[#1b2a22]">Community Impact:</strong> Join thousands of neighbors making a visible difference.</span>
               </li>
             </ul>
           </div>
-
-          <div className="overflow-hidden rounded-2xl border border-[#dfebe3]">
-            <Image
-              src="https://images.pexels.com/photos/36751337/pexels-photo-36751337.jpeg?auto=compress&cs=tinysrgb&w=1400"
-              alt="Team of workers sorting waste on an industrial conveyor belt at a processing facility"
-              width={1000}
-              height={700}
-              className="h-80 w-full object-cover"
-            />
-          </div>
         </div>
       </section>
 
-      <section className="site-container py-14">
-        <div className="grid gap-12 lg:grid-cols-[1fr_1fr] lg:items-start">
+      {/* For Drivers Section */}
+      <section id="drivers" className="border-t border-[#e6efe9] bg-[#f8fcf9] py-16 lg:py-24 transition-all duration-500 hover:bg-[#f1f8f3]">
+        <div className="site-container grid gap-8 lg:gap-12 lg:grid-cols-2 lg:items-center">
           <div>
-            <p className="section-eyebrow">Field-Focused Design</p>
-            <h2 className="section-title mt-3">Built For Operational Teams, Not Generic Dashboards</h2>
-            <p className="section-subtitle max-w-lg">
-              The system is structured around dispatch, collection, and closure loops with role-based
-              interfaces for citizens, drivers, and administrators.
+            <p className="text-xs sm:text-sm font-black uppercase tracking-widest text-[#197443]">For Drivers</p>
+            <h2 className="mt-3 sm:mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">Focus on the Road, We Handle the Route</h2>
+            <p className="mt-4 sm:mt-6 text-base sm:text-lg text-[#4f6158] leading-relaxed">
+              No more paper manifests or inefficient backtracking. The EcoSync driver app provides real-time, optimized turn-by-turn routes based on live traffic and prioritized community reports.
             </p>
-
-            <div className="mt-8 space-y-5 border-l-2 border-[#dfe9e3] pl-5" id="steps">
+            <div className="mt-8 grid gap-6 sm:grid-cols-2">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.15em] text-[#197443]">For Citizens</p>
-                <h3 className="mt-1 text-lg font-extrabold text-[#1d3025]">Create A Free Account To Report Issues</h3>
-                <p className="mt-1 text-sm text-[#5e7066]">
-                  Citizens sign up themselves. Staff accounts are created by an administrator.
-                </p>
+                <h3 className="font-bold text-[#1b2a22]">Dynamic Routing</h3>
+                <p className="mt-2 text-sm text-[#4f6158]">Routes automatically adjust when urgent reports are verified nearby.</p>
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.15em] text-[#197443]">Step 01</p>
-                <h3 className="mt-1 text-lg font-extrabold text-[#1d3025]">Select Bins And Assign Driver</h3>
-                <p className="mt-1 text-sm text-[#5e7066]">Admin dispatches routes from the control center.</p>
+                <h3 className="font-bold text-[#1b2a22]">One-Tap Updates</h3>
+                <p className="mt-2 text-sm text-[#4f6158]">Mark stops complete with a single tap. The dispatch center knows instantly.</p>
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.15em] text-[#197443]">Step 02</p>
-                <h3 className="mt-1 text-lg font-extrabold text-[#1d3025]">Driver Executes Collection</h3>
-                <p className="mt-1 text-sm text-[#5e7066]">Stops are updated as collected or missed, with overflow observed as a separate field signal.</p>
+                <h3 className="font-bold text-[#1b2a22]">Offline Mode</h3>
+                <p className="mt-2 text-sm text-[#4f6158]">Keep working in dead zones. Your progress syncs seamlessly when reconnected.</p>
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.15em] text-[#197443]">Step 03</p>
-                <h3 className="mt-1 text-lg font-extrabold text-[#1d3025]">Monitor And Complete Routes</h3>
-                <p className="mt-1 text-sm text-[#5e7066]">Pending routes close once all assigned bins are resolved.</p>
+                <h3 className="font-bold text-[#1b2a22]">Route Stats</h3>
+                <p className="mt-2 text-sm text-[#4f6158]">Track your daily efficiency and collection volumes at a glance.</p>
               </div>
             </div>
           </div>
-
-          <div className="space-y-5">
-            <Image
-              src="https://images.pexels.com/photos/36751332/pexels-photo-36751332.jpeg?auto=compress&cs=tinysrgb&w=1400"
-              alt="Workers sorting recyclable waste at a processing facility"
-              width={1000}
-              height={650}
-              className="h-64 w-full rounded-2xl border border-[#dfe9e3] object-cover"
-            />
-            <Image
-              src="https://images.pexels.com/photos/32246634/pexels-photo-32246634.jpeg?auto=compress&cs=tinysrgb&w=1400"
-              alt="Colorful outdoor recycling bins for waste segregation"
-              width={1000}
-              height={650}
-              className="h-64 w-full rounded-2xl border border-[#dfe9e3] object-cover"
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#f8fcf9] py-16">
-        <div className="site-container">
-          <div className="grid gap-12 lg:grid-cols-[1fr_1fr] lg:items-center">
-            <div className="order-2 lg:order-1 overflow-hidden rounded-2xl border border-[#dfebe3]">
+          <div>
+            <div className="overflow-hidden rounded-3xl shadow-sm">
               <Image
-                src="https://images.pexels.com/photos/4454065/pexels-photo-4454065.jpeg?auto=compress&cs=tinysrgb&w=1400"
-                alt="Aerial view of waste management facility with heavy machinery and landfill operations"
-                width={1000}
-                height={700}
-                className="h-80 w-full object-cover"
+                src="https://images.pexels.com/photos/18216395/pexels-photo-18216395.jpeg?auto=compress&cs=tinysrgb&w=1200"
+                alt="Drivers using the system"
+                width={800} height={600}
+                className="w-full object-cover transition-transform duration-700 hover:scale-105"
               />
             </div>
-
-            <div className="order-1 lg:order-2">
-              <p className="section-eyebrow">Infrastructure & Impact</p>
-              <h2 className="section-title mt-3">Built To Scale With Your City&apos;s Growth</h2>
-              <p className="section-subtitle max-w-lg">
-                From collection points to processing facilities, waste management is a system. Our
-                platform orchestrates thousands of daily collection cycles across multiple zones,
-                ensuring nothing falls through the cracks.
-              </p>
-
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-lg bg-[#f1f8f3] p-4 border border-[#dfe9e3]">
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#197443]">Real-Time Sync</p>
-                  <p className="mt-2 text-sm text-[#5e7066]">Every dispatch updates across all devices instantly.</p>
-                </div>
-                <div className="rounded-lg bg-[#f1f8f3] p-4 border border-[#dfe9e3]">
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#197443]">Complete Traceability</p>
-                  <p className="mt-2 text-sm text-[#5e7066]">Audit trail from collection through final disposition.</p>
-                </div>
-                <div className="rounded-lg bg-[#f1f8f3] p-4 border border-[#dfe9e3]">
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#197443]">Adaptive Routing</p>
-                  <p className="mt-2 text-sm text-[#5e7066]">Optimize routes based on bin capacity and current loads.</p>
-                </div>
-                <div className="rounded-lg bg-[#f1f8f3] p-4 border border-[#dfe9e3]">
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#197443]">Multi-Zone Support</p>
-                  <p className="mt-2 text-sm text-[#5e7066]">Manage unlimited collection zones from one dashboard.</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
-      <section id="contact" className="border-t border-[#e6efe9] bg-[#113f26] py-12 text-white">
-        <div className="site-container flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.17em] text-[#f0c765]">Get Started</p>
-            <h3 className="mt-2 text-3xl font-extrabold">Launch Your Waste Operations Control Center</h3>
+      {/* For Admins Section */}
+      <section id="admins" className="border-t border-[#e6efe9] bg-white py-16 lg:py-24 transition-all duration-500 hover:bg-[#fafdfb]">
+        <div className="site-container grid gap-8 lg:gap-12 lg:grid-cols-2 lg:items-center">
+          <div className="order-2 lg:order-1">
+            <div className="overflow-hidden rounded-3xl shadow-sm">
+              <Image
+                src="https://images.pexels.com/photos/4454065/pexels-photo-4454065.jpeg?auto=compress&cs=tinysrgb&w=1200"
+                alt="Admin dispatch center"
+                width={800} height={600}
+                className="w-full object-cover transition-transform duration-700 hover:scale-105"
+              />
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/login/citizen" className="btn-secondary">
-              Citizen Login
+          <div className="order-1 lg:order-2">
+            <p className="text-xs sm:text-sm font-black uppercase tracking-widest text-[#197443]">For Admins</p>
+            <h2 className="mt-3 sm:mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">Total Command Over City Operations</h2>
+            <p className="mt-4 sm:mt-6 text-base sm:text-lg text-[#4f6158] leading-relaxed">
+              Transform chaos into choreography. EcoSync gives administrators a bird's-eye view of every truck, every route, and every citizen report across multiple city zones.
+            </p>
+            <ul className="mt-8 space-y-4 text-[#4f6158]">
+              <li className="flex items-start gap-3">
+                <svg className="mt-1 h-5 w-5 shrink-0 text-[#197443]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span><strong className="text-[#1b2a22]">Live Map Visibility:</strong> Monitor fleet positions and assignment locks in real time.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <svg className="mt-1 h-5 w-5 shrink-0 text-[#197443]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span><strong className="text-[#1b2a22]">AI-Assisted Triage:</strong> Automatically filter and categorize citizen reports by severity.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <svg className="mt-1 h-5 w-5 shrink-0 text-[#197443]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span><strong className="text-[#1b2a22]">Performance Analytics:</strong> Generate actionable reports on driver efficiency and response times.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer CTA */}
+      <section className="border-t border-[#e6efe9] bg-[#113f26] py-16 lg:py-20 text-center text-white px-4">
+        <div className="site-container">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold">Ready to modernize your city's waste operations?</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-[#a4b4ab]">
+            Join the growing network of municipalities utilizing EcoSync to keep streets cleaner, operations leaner, and citizens happier.
+          </p>
+          <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+            <Link href="/login/citizen" className="btn-secondary rounded-full px-8 py-3.5 hover:-translate-y-0.5 w-full sm:w-auto text-center">
+              Citizen Portal
             </Link>
-            <Link href="/login/staff" className="btn-primary">
-              Staff Login
+            <Link href="/login/staff" className="btn-primary rounded-full px-8 py-3.5 hover:-translate-y-0.5 border-transparent w-full sm:w-auto text-center">
+              Staff Portal
             </Link>
           </div>
         </div>
