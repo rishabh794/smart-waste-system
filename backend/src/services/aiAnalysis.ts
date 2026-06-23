@@ -69,6 +69,45 @@ const fetchImageAsBase64 = async (
 };
 
 /**
+ * Robustly parses JSON from Gemini output, handling common LLM quirks
+ * like markdown fences, trailing commas, and single-quoted keys.
+ */
+const parseGeminiJson = <T>(raw: string): T => {
+  // Step 1: Strip markdown code fences (```json ... ``` or ``` ... ```)
+  let cleaned = raw.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+
+  // Step 2: If the cleaned string doesn't start with '{', try to extract a JSON object
+  if (!cleaned.startsWith('{')) {
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) {
+      cleaned = match[0];
+    }
+  }
+
+  // Step 3: Try parsing as-is first (happy path with responseMimeType)
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch {
+    // Fall through to sanitization
+  }
+
+  // Step 4: Sanitize common LLM JSON issues
+  let sanitized = cleaned
+    // Remove single-line comments (// ...)
+    .replace(/\/\/.*$/gm, '')
+    // Remove trailing commas before } or ]
+    .replace(/,\s*([}\]])/g, '$1')
+    // Replace single-quoted strings with double-quoted strings
+    // This regex matches single-quoted values that aren't inside double quotes
+    .replace(/(\s*:\s*)'([^']*)'/g, '$1"$2"')
+    // Replace single-quoted keys
+    .replace(/'([^']+)'\s*:/g, '"$1":')
+    .trim();
+
+  return JSON.parse(sanitized) as T;
+};
+
+/**
  * Calls the Gemini API with the image and parses the structured JSON response.
  */
 const callGemini = async (
@@ -99,6 +138,7 @@ const callGemini = async (
     generationConfig: {
       temperature: 0.1,
       maxOutputTokens: 512,
+      responseMimeType: 'application/json',
     },
   };
 
@@ -126,17 +166,11 @@ const callGemini = async (
     throw new Error('Gemini returned an empty response.');
   }
 
-  // Strip potential markdown code fences just in case
-  const cleaned = rawText
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim();
-
-  const parsed = JSON.parse(cleaned) as AiAnalysisResult;
+  const parsed = parseGeminiJson<AiAnalysisResult>(rawText);
 
   // Validate essential fields
   if (typeof parsed.isValidReport !== 'boolean' || typeof parsed.confidenceScore !== 'number') {
-    throw new Error(`Gemini returned malformed JSON: ${cleaned}`);
+    throw new Error(`Gemini returned malformed JSON: ${rawText.slice(0, 300)}`);
   }
 
   return parsed;
