@@ -23,6 +23,7 @@ export const uploadReportImage = async (file: Blob | File): Promise<string> => {
         maxSizeMB: 1, // Compress to max 1MB
         maxWidthOrHeight: 1920,
         useWebWorker: true,
+        preserveExif: true, // Crucial for backend EXIF validation
       });
     } catch (error) {
       console.warn("Image compression failed, using original file:", error);

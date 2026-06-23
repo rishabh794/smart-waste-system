@@ -7,22 +7,27 @@ const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 const REQUEST_TIMEOUT_MS = 30_000;
 
-const ANALYSIS_PROMPT = `You are a strict automated triage agent for a municipal waste department. Analyze this image and determine if it shows a valid waste, garbage, litter, or infrastructure damage report.
+const ANALYSIS_PROMPT = `You are a strict automated triage and forensics agent for a municipal waste department. Analyze this image and determine if it shows a valid, real-life waste, garbage, litter, or infrastructure damage report.
+
+CRITICAL FORENSICS CHECK: 
+You must actively look for signs of fraud. Users sometimes take photos of other screens (e.g., pointing a phone at a laptop showing a Google Image of trash) or upload stock photos. 
+If the image appears to be a photo of a screen (look for pixel grids, moiré patterns, screen bezels, glare from a screen, or mouse cursors), a stock photo (watermarks), or AI-generated, it is considered FRAUD.
 
 Return ONLY a JSON object with these exact fields:
 {
-  "isValidReport": boolean,       // true if the image shows real waste, garbage, litter, or a legitimate waste-related issue
+  "isValidReport": boolean,       // true if the image shows real, physical waste in the real world. false if it's not waste OR if it's a photo of a screen/stock photo.
   "confidenceScore": number,      // 0 to 100, how confident you are in your assessment
   "severity": "low" | "medium" | "high" | "critical",  // severity of the waste issue shown
   "category": "organic" | "bulk" | "recyclable" | "hazardous" | "general",  // type of waste visible
-  "reason": string                // brief 1-2 sentence explanation of your analysis
+  "reason": string                // brief 1-2 sentence explanation of your analysis. If rejected for forensics, explain exactly what gave it away.
 }
 
 Guidelines for Classification:
 
-1. VALIDITY & FALLBACK:
-- If the image clearly shows waste or a related issue, set isValidReport to true.
-- If the image DOES NOT show waste (e.g., a selfie, a dog, a blurry black screen), set isValidReport to false. 
+1. VALIDITY, FORENSICS & FALLBACK:
+- If the image clearly shows REAL waste or a related issue in a physical environment, set isValidReport to true.
+- If the image DOES NOT show waste (e.g., a selfie, a dog, a blurry black screen), set isValidReport to false.
+- If the image shows waste but is a PHOTO OF A SCREEN, STOCK PHOTO, or AI GENERATED, set isValidReport to false and state the reason.
 - IMPORTANT: If isValidReport is false, you MUST default severity to "low" and category to "general".
 
 2. SEVERITY LEVELS:
@@ -68,10 +73,7 @@ const fetchImageAsBase64 = async (
   return { base64, mimeType: (contentType.split(';')[0] ?? 'image/jpeg').trim() };
 };
 
-/**
- * Robustly parses JSON from Gemini output, handling common LLM quirks
- * like markdown fences, trailing commas, and single-quoted keys.
- */
+
 const parseGeminiJson = <T>(raw: string): T => {
   // Step 1: Strip markdown code fences (```json ... ``` or ``` ... ```)
   let cleaned = raw.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
@@ -98,7 +100,6 @@ const parseGeminiJson = <T>(raw: string): T => {
     // Remove trailing commas before } or ]
     .replace(/,\s*([}\]])/g, '$1')
     // Replace single-quoted strings with double-quoted strings
-    // This regex matches single-quoted values that aren't inside double quotes
     .replace(/(\s*:\s*)'([^']*)'/g, '$1"$2"')
     // Replace single-quoted keys
     .replace(/'([^']+)'\s*:/g, '"$1":')
