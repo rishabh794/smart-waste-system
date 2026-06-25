@@ -9,19 +9,29 @@ const REQUEST_TIMEOUT_MS = 30_000;
 
 const ANALYSIS_PROMPT = `You are a strict automated triage agent for a municipal waste department. Analyze this image and determine if it shows a valid waste, garbage, litter, or infrastructure damage report.
 
+CRITICAL SCREEN DETECTION: You must determine if this image is a photograph of a real-world scene or a photograph of a digital display/screen showing garbage. 
+Carefully analyze for the following signs of a digital screen:
+- Moiré patterns (wavy, rainbow-like interference patterns)
+- Visible pixel structure or RGB grid
+- Screen reflections or glare from room lighting
+- Device bezels, monitor frames, or edges of a physical screen in the frame
+- Refresh artifacts or banding
+- Flat, unnatural perspective or skewed angles typical of capturing a monitor
+
 Return ONLY a JSON object with these exact fields:
 {
-  "isValidReport": boolean,       // true if the image shows real waste, garbage, litter, or a legitimate waste-related issue
+  "isValidReport": boolean,       // true if it is a real-world photo of waste, false if it is a screen photo or NOT waste
   "confidenceScore": number,      // 0 to 100, how confident you are in your assessment
   "severity": "low" | "medium" | "high" | "critical",  // severity of the waste issue shown
   "category": "organic" | "bulk" | "recyclable" | "hazardous" | "general",  // type of waste visible
-  "reason": string                // brief 1-2 sentence explanation of your analysis
+  "reason": string                // brief 1-2 sentence explanation of your analysis, noting screen detection evidence if applicable
 }
 
 Guidelines for Classification:
 
 1. VALIDITY & FALLBACK:
-- If the image clearly shows waste or a related issue, set isValidReport to true.
+- If you detect any signs that this is a photograph of a digital screen (moiré, pixels, bezels, etc.), you MUST set isValidReport to false and state the reason.
+- If the image clearly shows real-world waste or a related issue, set isValidReport to true.
 - If the image DOES NOT show waste (e.g., a selfie, a dog, a blurry black screen), set isValidReport to false. 
 - IMPORTANT: If isValidReport is false, you MUST default severity to "low" and category to "general".
 
