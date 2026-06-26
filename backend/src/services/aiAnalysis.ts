@@ -19,12 +19,20 @@ Carefully analyze for the following signs of a digital screen:
 - Flat, unnatural perspective or skewed angles typical of capturing a monitor
 
 Return ONLY a JSON object with these exact fields:
+
+- "isValidReport" (boolean): true if it is a real-world photo of waste, false if it is a screen photo or NOT waste.
+- "confidenceScore" (number): 0 to 100, how confident you are in your assessment.
+- "severity" (string): one of "low", "medium", "high", or "critical" based on the waste issue shown.
+- "category" (string): one of "organic", "bulk", "recyclable", "hazardous", or "general" based on the type of waste visible.
+- "reason" (string): brief 1-2 sentence explanation of your analysis, noting screen detection evidence if applicable.
+
+Format:
 {
-  "isValidReport": boolean,       // true if it is a real-world photo of waste, false if it is a screen photo or NOT waste
-  "confidenceScore": number,      // 0 to 100, how confident you are in your assessment
-  "severity": "low" | "medium" | "high" | "critical",  // severity of the waste issue shown
-  "category": "organic" | "bulk" | "recyclable" | "hazardous" | "general",  // type of waste visible
-  "reason": string                // brief 1-2 sentence explanation of your analysis, noting screen detection evidence if applicable
+  "isValidReport": boolean,
+  "confidenceScore": 0-100,
+  "severity": "low" | "medium" | "high" | "critical",
+  "category": "organic" | "bulk" | "recyclable" | "hazardous" | "general",
+  "reason": string
 }
 
 Guidelines for Classification:
@@ -86,9 +94,9 @@ const parseGeminiJson = <T>(raw: string): T => {
   // Step 1: Strip markdown code fences (```json ... ``` or ``` ... ```)
   let cleaned = raw.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
 
-  // Step 2: If the cleaned string doesn't start with '{', try to extract a JSON object
+  // Step 2: If the cleaned string doesn't start with '{', extract the first JSON object (non-greedy)
   if (!cleaned.startsWith('{')) {
-    const match = cleaned.match(/\{[\s\S]*\}/);
+    const match = cleaned.match(/\{[\s\S]*?\}/);
     if (match) {
       cleaned = match[0];
     }
@@ -107,14 +115,64 @@ const parseGeminiJson = <T>(raw: string): T => {
     .replace(/\/\/.*$/gm, '')
     // Remove trailing commas before } or ]
     .replace(/,\s*([}\]])/g, '$1')
-    // Replace single-quoted strings with double-quoted strings
-    // This regex matches single-quoted values that aren't inside double quotes
-    .replace(/(\s*:\s*)'([^']*)'/g, '$1"$2"')
-    // Replace single-quoted keys
+    // Quote unquoted property names (e.g. {isValidReport: true} -> {"isValidReport": true})
+    .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+    // Replace single-quoted keys (safe — keys won't contain apostrophes)
     .replace(/'([^']+)'\s*:/g, '"$1":')
     .trim();
 
-  return JSON.parse(sanitized) as T;
+  try {
+    return JSON.parse(sanitized) as T;
+  } catch {
+    // Fall through to truncation repair
+  }
+
+  // Step 5: Attempt to repair truncated JSON (e.g. from maxOutputTokens cutoff)
+  const repaired = repairTruncatedJson(sanitized);
+  try {
+    return JSON.parse(repaired) as T;
+  } catch {
+    throw new Error(`Failed to parse Gemini response after all repair attempts: ${raw.slice(0, 200)}`);
+  }
+};
+
+const repairTruncatedJson = (json: string): string => {
+  let s = json;
+
+  const quoteMatches = s.match(/(?<!\\)"/g);
+  if (quoteMatches && quoteMatches.length % 2 !== 0) {
+    s += '"';
+  }
+
+  s = s.replace(/,\s*"[^"]*"\s*:\s*$/, '');
+  s = s.replace(/,\s*$/, '');
+
+  // Balance braces and brackets
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '\\' && inString) {
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+    } else if (!inString) {
+      if (ch === '{') openBraces++;
+      else if (ch === '}') openBraces--;
+      else if (ch === '[') openBrackets++;
+      else if (ch === ']') openBrackets--;
+    }
+  }
+
+  // Append missing closing characters
+  while (openBrackets > 0) { s += ']'; openBrackets--; }
+  while (openBraces > 0) { s += '}'; openBraces--; }
+
+  return s;
 };
 
 /**
@@ -147,7 +205,7 @@ const callGemini = async (
     ],
     generationConfig: {
       temperature: 0.1,
-      maxOutputTokens: 512,
+      maxOutputTokens: 1024,
       responseMimeType: 'application/json',
     },
   };
@@ -178,9 +236,18 @@ const callGemini = async (
 
   const parsed = parseGeminiJson<AiAnalysisResult>(rawText);
 
-  // Validate essential fields
-  if (typeof parsed.isValidReport !== 'boolean' || typeof parsed.confidenceScore !== 'number') {
-    throw new Error(`Gemini returned malformed JSON: ${rawText.slice(0, 300)}`);
+  // Validate all fields against expected types and allowed values
+  const VALID_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
+  const VALID_CATEGORIES = ['organic', 'bulk', 'recyclable', 'hazardous', 'general'] as const;
+
+  if (
+    typeof parsed.isValidReport !== 'boolean' ||
+    typeof parsed.confidenceScore !== 'number' ||
+    !VALID_SEVERITIES.includes(parsed.severity as any) ||
+    !VALID_CATEGORIES.includes(parsed.category as any) ||
+    typeof parsed.reason !== 'string'
+  ) {
+    throw new Error(`Gemini returned invalid or incomplete JSON: ${rawText.slice(0, 300)}`);
   }
 
   return parsed;
