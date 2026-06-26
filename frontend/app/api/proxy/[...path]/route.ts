@@ -20,13 +20,17 @@ async function proxyRequest(req: NextRequest, context: { params: Promise<{ path:
   headers.delete("host"); // Let the backend determine its own host
 
   try {
-    const response = await fetch(targetUrl, {
+    const initOptions: RequestInit & { duplex?: string } = {
       method: req.method,
       headers,
-      body: ["POST", "PUT", "PATCH"].includes(req.method) ? req.body : undefined,
-      // Required to proxy streaming bodies in Node.js
-      duplex: "half",
-    } as any);
+    };
+
+    if (["POST", "PUT", "PATCH"].includes(req.method.toUpperCase())) {
+      initOptions.body = req.body as any;
+      initOptions.duplex = "half"; // Required to proxy streaming bodies in Node.js
+    }
+
+    const response = await fetch(targetUrl, initOptions);
 
     const responseHeaders = new Headers(response.headers);
     responseHeaders.delete("content-encoding");

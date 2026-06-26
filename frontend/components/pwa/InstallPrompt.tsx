@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { hasMobileRoleNav } from "@/lib/navigationLinks";
 
 const DISMISS_KEY = "smart-waste-pwa-install-dismissed";
 
@@ -28,7 +27,7 @@ export default function InstallPrompt() {
   }, []);
 
   useEffect(() => {
-    if (!hasMobileRoleNav(role) || isStandaloneMode()) {
+    if (isStandaloneMode()) {
       return;
     }
 
@@ -55,8 +54,22 @@ export default function InstallPrompt() {
     setDeferredPrompt(null);
   };
 
-  if (!deferredPrompt || isDismissed || !hasMobileRoleNav(role) || isStandaloneMode()) {
+  if (!deferredPrompt || isStandaloneMode()) {
     return null;
+  }
+
+  if (isDismissed) {
+    return (
+      <button
+        onClick={handleInstall}
+        className="fixed bottom-20 right-4 z-50 flex items-center justify-center gap-2 rounded-full border border-[#bfd5c5] bg-[#f8fcf9] px-4 py-2 text-sm font-bold text-[#1a7b3a] shadow-lg lg:bottom-6 lg:right-6 hover:bg-[#e4ece6] transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+        Install App
+      </button>
+    );
   }
 
   return (
