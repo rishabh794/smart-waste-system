@@ -23,7 +23,7 @@ async function proxyRequest(req: NextRequest, context: { params: Promise<{ path:
     const response = await fetch(targetUrl, {
       method: req.method,
       headers,
-      body: req.method !== "GET" && req.method !== "HEAD" ? req.body : undefined,
+      body: ["POST", "PUT", "PATCH"].includes(req.method) ? req.body : undefined,
       // Required to proxy streaming bodies in Node.js
       duplex: "half",
     } as any);
