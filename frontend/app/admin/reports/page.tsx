@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import useSWR from "swr";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AdminReportsBoard from "@/components/admin/reports/AdminReportsBoard";
@@ -18,6 +19,7 @@ export default function AdminReportsPage() {
   const [view, setView] = useState<"board" | "table" | "rejected">("board");
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState(DEFAULT_BOARD_FILTERS);
+  const debouncedSearch = useDebounce(filters.searchQuery, 300);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
   const handleViewChange = (newView: "board" | "table" | "rejected") => {
@@ -30,7 +32,7 @@ export default function AdminReportsPage() {
     params.set("limit", baseLimit.toString());
     params.set("status", baseStatus);
     if (currentPage > 1 && view !== "board") params.set("page", currentPage.toString());
-    if (filters.searchQuery) params.set("search", filters.searchQuery);
+    if (debouncedSearch) params.set("search", debouncedSearch);
     if (filters.category && filters.category !== "all") params.set("category", filters.category);
     if (filters.sortOrder) params.set("sort", filters.sortOrder);
     return params.toString();
