@@ -62,6 +62,11 @@ export default function ReportIssuePage() {
   const [isLookingUpBin, setIsLookingUpBin] = useState(false);
   const [isPhone, setIsPhone] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const clientIdRef = useRef(
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `online-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 
   const updateField = (key: keyof typeof formState, value: string) => {
     setFormState((current) => ({ ...current, [key]: value }));
@@ -228,6 +233,7 @@ export default function ReportIssuePage() {
       longitude: parsed.data.longitude,
       address: trimmedAddress ? trimmedAddress : undefined,
       binId: trimmedBinId ? trimmedBinId : undefined,
+      clientReportId: clientIdRef.current,
     };
 
     setIsSubmitting(true);
