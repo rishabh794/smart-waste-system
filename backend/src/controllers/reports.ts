@@ -384,7 +384,12 @@ export const deleteReport = async (req: Request<{ reportId: string }>, res: Resp
     return res.status(401).json({ error: 'Unauthorized: Missing user context' });
   }
 
-  const { reportId } = req.params;
+  const parsedParams = reportIdParamsSchema.safeParse(req.params);
+  if (!parsedParams.success) {
+    return res.status(400).json({ error: getValidationErrorMessage(parsedParams.error) });
+  }
+
+  const { reportId } = parsedParams.data;
 
   try {
     // Determine the report's owner
@@ -403,9 +408,11 @@ export const deleteReport = async (req: Request<{ reportId: string }>, res: Resp
       return res.status(403).json({ error: 'Forbidden: You can only delete your own reports' });
     }
 
-    // Hard delete: delete dependent records first if they exist
-    await db.delete(reportAiAnalyses).where(eq(reportAiAnalyses.reportId, reportId));
-    await db.delete(reports).where(eq(reports.id, reportId));
+    // Wrap in a transaction to prevent race conditions with concurrent AI jobs
+    await db.transaction(async (tx) => {
+      await tx.delete(reportAiAnalyses).where(eq(reportAiAnalyses.reportId, reportId));
+      await tx.delete(reports).where(eq(reports.id, reportId));
+    });
 
     return res.status(200).json({ message: 'Report deleted successfully' });
   } catch (error) {

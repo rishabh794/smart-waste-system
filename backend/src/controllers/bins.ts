@@ -149,7 +149,7 @@ export const getNearbyBin = async (req: Request, res: Response): Promise<any> =>
   const { latitude, longitude } = parsedQuery.data;
 
   try {
-    // Step 1: Bounding-box pre-filter — only scan bins in a ~20 m box
+    // Step 1: Bounding-box pre-filter — only scan bins in a CITIZEN_NEARBY_RADIUS_M box
     const box = boundingBox(latitude, longitude, CITIZEN_NEARBY_RADIUS_M);
 
     const candidates = await db

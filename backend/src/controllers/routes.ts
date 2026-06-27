@@ -134,7 +134,7 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
       return res.status(400).json({ error: 'Cannot update bin status for a completed route' });
     }
 
-    // ── Geofence check: driver must be within 40 m of the bin (skipped for 'missed') ──
+    // ── Geofence check: driver must be within DRIVER_GEOFENCE_RADIUS_M of the bin (skipped for 'missed') ──
     if (status !== 'missed') {
       const [targetBin] = await db
         .select({ latitude: bins.latitude, longitude: bins.longitude })

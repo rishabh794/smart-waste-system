@@ -35,12 +35,21 @@ import type {
   RouteData,
 } from "@/types/DriverTypes";
 
-const DRIVER_GEOFENCE_RADIUS_M = 40;
+/**
+ * Must match the backend constant in backend/src/utils/geo.ts.
+ * @see DRIVER_GEOFENCE_RADIUS_M in backend/src/utils/geo.ts
+ */
+const DRIVER_GEOFENCE_RADIUS_M = 140;
 
 const resolveDepotCoords = (depotLat?: number, depotLng?: number): [number, number] =>
   depotLat != null && depotLng != null ? [depotLat, depotLng] : DEPOT_COORDS;
 
-/** Haversine distance in meters (client-side mirror for offline geofencing). */
+/**
+ * Haversine distance in meters — client-side mirror for offline geofencing.
+ * Duplicated from backend/src/utils/geo.ts so the geofence check works without
+ * network access. Keep both implementations in sync.
+ * @see haversineDistance in backend/src/utils/geo.ts
+ */
 const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);

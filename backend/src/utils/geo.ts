@@ -6,10 +6,10 @@
  */
 
 /** Driver must be within this radius (meters) to update a bin status. */
-export const DRIVER_GEOFENCE_RADIUS_M = 40;
+export const DRIVER_GEOFENCE_RADIUS_M = 140;
 
 /** Citizen reports auto-link to the nearest bin within this radius (meters). */
-export const CITIZEN_NEARBY_RADIUS_M = 20;
+export const CITIZEN_NEARBY_RADIUS_M = 120;
 
 const EARTH_RADIUS_M = 6_371_000; // Mean Earth radius in meters
 
