@@ -97,7 +97,26 @@ export const enqueueBinStatus = async (input: {
   };
 
   const db = await getOfflineDb();
-  await db.put("outbox", outboxItem);
+  const tx = db.transaction("outbox", "readwrite");
+  const store = tx.objectStore("outbox");
+
+  // Deduplicate: replace any existing pending item for the same (routeId, binId)
+  // so only the latest status update gets synced.
+  const allItems = await store.getAll();
+  for (const existing of allItems) {
+    if (
+      existing.type === "bin_status" &&
+      existing.status === "pending" &&
+      existing.routeId === input.routeId &&
+      existing.binId === input.binId
+    ) {
+      await store.delete(existing.id);
+    }
+  }
+
+  await store.put(outboxItem);
+  await tx.done;
+
   notifyOfflineStoreChanged();
   return outboxItem.id;
 };

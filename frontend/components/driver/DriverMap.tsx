@@ -2,7 +2,7 @@
 
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { RouteBin } from "@/types/DriverTypes";
 
 // Keep your custom CSS marker logic
@@ -35,11 +35,45 @@ interface DriverMapProps {
   isTrackingGps?: boolean;
 }
 
-function MapUpdater({ center }: { center: [number, number] }) {
+/**
+ * Fits the map bounds to show all markers (depot + bins + driver) on initial
+ * mount. After the first fit, the user is free to pan/zoom without interference.
+ */
+function FitBounds({
+  bins,
+  depotCoords,
+  driverPosition,
+}: {
+  bins: RouteBin[];
+  depotCoords: [number, number];
+  driverPosition?: { latitude: number; longitude: number } | null;
+}) {
   const map = useMap();
+  const hasFitted = useRef(false);
+
   useEffect(() => {
-    map.setView(center, map.getZoom());
-  }, [center, map]);
+    if (hasFitted.current) return;
+
+    const points: [number, number][] = [depotCoords];
+
+    bins.forEach((bin) => {
+      if (bin.latitude && bin.longitude) {
+        points.push([bin.latitude, bin.longitude]);
+      }
+    });
+
+    if (driverPosition) {
+      points.push([driverPosition.latitude, driverPosition.longitude]);
+    }
+
+    if (points.length > 1) {
+      const bounds = L.latLngBounds(points.map(([lat, lng]) => L.latLng(lat, lng)));
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    }
+
+    hasFitted.current = true;
+  }, [bins, depotCoords, driverPosition, map]);
+
   return null;
 }
 
@@ -58,6 +92,22 @@ export default function DriverMap({
     return bin.status;
   };
 
+  // Memoize driver icon so Leaflet doesn't teardown/rebuild the marker on
+  // every GPS tick. Only rebuild when tracking state changes.
+  const driverIcon = useMemo(
+    () =>
+      L.divIcon({
+        className: "custom-leaflet-icon",
+        html: `<div class="relative flex h-7 w-7 items-center justify-center">
+                <span class="absolute h-7 w-7 animate-ping rounded-full ${isTrackingGps ? "bg-blue-400/40" : "bg-orange-400/40"}"></span>
+                <span class="relative h-4 w-4 rounded-full border-2 border-white bg-blue-600 shadow-lg"></span>
+              </div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      }),
+    [isTrackingGps]
+  );
+
   return (
     <div className="relative z-0 mb-4 h-100 w-full overflow-hidden rounded-xl border border-[#dce7df] bg-[#f7fcf8]">
       <MapContainer 
@@ -70,20 +120,12 @@ export default function DriverMap({
           attribution='&copy; OpenStreetMap'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapUpdater center={depotCoords} />
+        <FitBounds bins={bins} depotCoords={depotCoords} driverPosition={driverPosition} />
 
         {driverPosition && (
           <Marker
             position={[driverPosition.latitude, driverPosition.longitude]}
-            icon={L.divIcon({
-              className: "custom-leaflet-icon",
-              html: `<div class="relative flex h-7 w-7 items-center justify-center">
-                <span class="absolute h-7 w-7 animate-ping rounded-full ${isTrackingGps ? "bg-blue-400/40" : "bg-orange-400/40"}"></span>
-                <span class="relative h-4 w-4 rounded-full border-2 border-white bg-blue-600 shadow-lg"></span>
-              </div>`,
-              iconSize: [28, 28],
-              iconAnchor: [14, 14],
-            })}
+            icon={driverIcon}
           >
             <Popup>
               <div className="text-black">

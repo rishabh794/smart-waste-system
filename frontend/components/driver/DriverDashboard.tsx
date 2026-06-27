@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from 'next/dynamic';
 import { toast } from "sonner";
 import useSWR from 'swr';
@@ -56,6 +56,18 @@ const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return 6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
+/**
+ * Shallow-compare two arrays of coordinate tuples.
+ * Returns true if they are structurally identical.
+ */
+const arePathsEqual = (a: [number, number][], b: [number, number][]): boolean => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i][0] !== b[i][0] || a[i][1] !== b[i][1]) return false;
+  }
+  return true;
+};
+
 /** Promise wrapper around navigator.geolocation for async/await usage. */
 const DriverMap = dynamic(() => import('./DriverMap'), {
   ssr: false,
@@ -94,6 +106,17 @@ export default function DriverDashboard({ userId }: { userId: string }) {
   // Important request state: prevent duplicate complete-route API calls.
   const [isCompletingRoute, setIsCompletingRoute] = useState(false);
 
+  // Refs for shallow-equality guards to avoid unnecessary state updates.
+  const routePathRef = useRef<[number, number][]>(routePath);
+
+  // Stable setter: only updates routePath state when the data actually changed.
+  const setStableRoutePath = useCallback((nextPath: [number, number][]) => {
+    if (!arePathsEqual(routePathRef.current, nextPath)) {
+      routePathRef.current = nextPath;
+      setRoutePath(nextPath);
+    }
+  }, []);
+
   // useEffect: sync SWR route data with cached OSRM geometry and map state.
   useEffect(() => {
     let isCancelled = false;
@@ -102,7 +125,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       if (!cachedRoute?.routeId) {
         if (!isValidating) {
           setDisplayRoute(null);
-          setRoutePath([]);
+          setStableRoutePath([]);
         }
         return;
       }
@@ -117,7 +140,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
         if (isCancelled) return;
 
         setDisplayRoute({ ...cachedRoute, bins: orderedBins });
-        setRoutePath(cachedGeometry.routePath);
+        setStableRoutePath(cachedGeometry.routePath);
         setPreservedMap({
           bins: orderedBins,
           routePath: cachedGeometry.routePath,
@@ -130,7 +153,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       const fallbackBins = sortBinsBySequence(cachedRoute.bins);
       if (!isCancelled) {
         setDisplayRoute({ ...cachedRoute, bins: fallbackBins });
-        setRoutePath([]);
+        setStableRoutePath([]);
       }
 
       const optimizedRoute = await optimizeRouteGeometry(cachedRoute);
@@ -138,7 +161,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
 
       await persistRouteGeometrySnapshot(userId, cachedRoute, optimizedRoute);
       setDisplayRoute({ ...cachedRoute, bins: optimizedRoute.bins });
-      setRoutePath(optimizedRoute.routePath);
+      setStableRoutePath(optimizedRoute.routePath);
       setPreservedMap({
         ...optimizedRoute,
         depotLat: cachedRoute.depotLat ?? optimizedRoute.depotLat,
@@ -151,7 +174,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
     return () => {
       isCancelled = true;
     };
-  }, [cachedRoute, isValidating, userId]);
+  }, [cachedRoute, isValidating, userId, setStableRoutePath]);
 
   // useEffect: reset completion confirmation whenever route context changes.
   useEffect(() => {
@@ -229,9 +252,15 @@ export default function DriverDashboard({ userId }: { userId: string }) {
           return currentRoute ?? null;
         }
 
+        // Use displayRoute.bins (which carry optimizedSequence from OSRM)
+        // instead of the raw SWR cache bins that lack optimizedSequence.
+        // This prevents a temporary sort-by-server-sequence that visually
+        // swaps stop numbers until the synchronizeRouteView effect re-merges.
+        const sourceBins = displayRoute?.bins ?? currentRoute.bins;
+
         return {
           ...currentRoute,
-          bins: currentRoute.bins.map((bin) =>
+          bins: sourceBins.map((bin) =>
             bin.binId === binId
               ? {
                 ...bin,
@@ -370,6 +399,16 @@ export default function DriverDashboard({ userId }: { userId: string }) {
     }
   };
 
+  // Memoize depot coords so the reference is stable across renders.
+  // Uses displayRoute when available, falls back to preservedMap.
+  const stableDepotCoords = useMemo(
+    () => resolveDepotCoords(
+      displayRoute?.depotLat ?? preservedMap?.depotLat,
+      displayRoute?.depotLng ?? preservedMap?.depotLng
+    ),
+    [displayRoute?.depotLat, displayRoute?.depotLng, preservedMap?.depotLat, preservedMap?.depotLng]
+  );
+
   if (isLoading && !displayRoute && !preservedMap) {
     return (
       <DataLoadingState
@@ -391,7 +430,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
             <DriverMap
               bins={visibleMapBins}
               routePolyline={visibleMapPath}
-              depotCoords={resolveDepotCoords(preservedMap.depotLat, preservedMap.depotLng)}
+              depotCoords={stableDepotCoords}
               driverPosition={driverPosition}
               isTrackingGps={isTracking}
             />
@@ -414,7 +453,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       <DriverMap
         bins={displayRoute.bins}
         routePolyline={routePath}
-        depotCoords={resolveDepotCoords(displayRoute.depotLat, displayRoute.depotLng)}
+        depotCoords={stableDepotCoords}
         driverPosition={driverPosition}
         isTrackingGps={isTracking}
       />
