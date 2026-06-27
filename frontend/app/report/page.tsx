@@ -513,7 +513,7 @@ export default function ReportIssuePage() {
                   />
                   {isBinAutoDetected && (
                     <p className="mt-1 text-xs text-[#5f7167]">
-                      A bin was found within 20m of your location.
+                      A bin was found within 200m of your location.
                     </p>
                   )}
                   {!isBinAutoDetected && !isLookingUpBin && formState.latitude && (

@@ -36,18 +36,14 @@ import type {
 } from "@/types/DriverTypes";
 
 /**
- * Must match the backend constant in backend/src/utils/geo.ts.
  * @see DRIVER_GEOFENCE_RADIUS_M in backend/src/utils/geo.ts
  */
-const DRIVER_GEOFENCE_RADIUS_M = 140;
+const DRIVER_GEOFENCE_RADIUS_M = 200;
 
 const resolveDepotCoords = (depotLat?: number, depotLng?: number): [number, number] =>
   depotLat != null && depotLng != null ? [depotLat, depotLng] : DEPOT_COORDS;
 
 /**
- * Haversine distance in meters — client-side mirror for offline geofencing.
- * Duplicated from backend/src/utils/geo.ts so the geofence check works without
- * network access. Keep both implementations in sync.
  * @see haversineDistance in backend/src/utils/geo.ts
  */
 const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -208,7 +204,7 @@ export default function DriverDashboard({ userId }: { userId: string }) {
       if (!driverCoords) {
         toast.error(
           gpsError ??
-            "GPS signal unavailable. Enable location access and wait for a fix, or mark the stop as skipped."
+          "GPS signal unavailable. Enable location access and wait for a fix, or mark the stop as skipped."
         );
         return;
       }
@@ -415,9 +411,9 @@ export default function DriverDashboard({ userId }: { userId: string }) {
   return (
     <div className="space-y-6">
 
-      <DriverMap 
-        bins={displayRoute.bins} 
-        routePolyline={routePath} 
+      <DriverMap
+        bins={displayRoute.bins}
+        routePolyline={routePath}
         depotCoords={resolveDepotCoords(displayRoute.depotLat, displayRoute.depotLng)}
         driverPosition={driverPosition}
         isTrackingGps={isTracking}
