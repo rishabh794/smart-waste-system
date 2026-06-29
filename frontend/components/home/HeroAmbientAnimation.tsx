@@ -5,48 +5,48 @@ import { motion } from "framer-motion";
 export default function HeroAmbientAnimation() {
   return (
     <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-      {/* Soft Green Glowing Orb */}
+      {/* Top-right soft green orb */}
       <motion.div
         animate={{
-          x: [0, 100, -50, 0],
-          y: [0, -50, 50, 0],
-          scale: [1, 1.1, 0.9, 1],
+          x: [0, 60, -30, 0],
+          y: [0, -30, 30, 0],
+          scale: [1, 1.08, 0.95, 1],
         }}
         transition={{
-          duration: 15,
+          duration: 14,
           repeat: Infinity,
           ease: "linear",
         }}
-        className="absolute top-[-10%] left-[-10%] h-[50vw] w-[50vw] rounded-full bg-[#e8f4ec] opacity-50 blur-[100px]"
+        className="absolute top-[-12%] right-[-8%] h-[45vw] w-[45vw] rounded-full bg-[#e8f4ec] opacity-60 blur-[100px]"
       />
-      
-      {/* Soft Yellow/Gold Glowing Orb */}
+
+      {/* Bottom-left sage/green orb */}
       <motion.div
         animate={{
-          x: [0, -80, 60, 0],
-          y: [0, 80, -40, 0],
-          scale: [1, 1.2, 0.8, 1],
+          x: [0, -50, 40, 0],
+          y: [0, 50, -30, 0],
+          scale: [1, 1.15, 0.9, 1],
         }}
         transition={{
           duration: 18,
           repeat: Infinity,
           ease: "linear",
         }}
-        className="absolute right-[-10%] bottom-[-10%] h-[40vw] w-[40vw] rounded-full bg-[#fce8d5] opacity-40 blur-[100px]"
+        className="absolute bottom-[-12%] left-[-8%] h-[40vw] w-[40vw] rounded-full bg-[#d4eeda] opacity-45 blur-[100px]"
       />
 
-      {/* Subtle Brand Green Glowing Orb in Center */}
+      {/* Center brand green glow */}
       <motion.div
         animate={{
-          scale: [1, 1.05, 1],
-          opacity: [0.1, 0.2, 0.1],
+          scale: [1, 1.04, 1],
+          opacity: [0.06, 0.12, 0.06],
         }}
         transition={{
           duration: 8,
           repeat: Infinity,
           ease: "easeInOut",
         }}
-        className="absolute top-[20%] left-[25%] h-[60vw] w-[60vw] rounded-full bg-[#197443] blur-[140px]"
+        className="absolute top-[25%] left-[30%] h-[50vw] w-[50vw] rounded-full bg-[#197443] blur-[140px]"
       />
     </div>
   );

@@ -56,10 +56,6 @@ const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return 6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-/**
- * Shallow-compare two arrays of coordinate tuples.
- * Returns true if they are structurally identical.
- */
 const arePathsEqual = (a: [number, number][], b: [number, number][]): boolean => {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
@@ -252,15 +248,9 @@ export default function DriverDashboard({ userId }: { userId: string }) {
           return currentRoute ?? null;
         }
 
-        // Use displayRoute.bins (which carry optimizedSequence from OSRM)
-        // instead of the raw SWR cache bins that lack optimizedSequence.
-        // This prevents a temporary sort-by-server-sequence that visually
-        // swaps stop numbers until the synchronizeRouteView effect re-merges.
-        const sourceBins = displayRoute?.bins ?? currentRoute.bins;
-
         return {
           ...currentRoute,
-          bins: sourceBins.map((bin) =>
+          bins: currentRoute.bins.map((bin) =>
             bin.binId === binId
               ? {
                 ...bin,

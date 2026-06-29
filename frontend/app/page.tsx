@@ -16,21 +16,14 @@ export default async function Home() {
   return (
     <main className="bg-[#f8fcf9] text-[#1b2a22]">
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-16 pb-20 sm:pt-20 sm:pb-24 lg:pt-32 lg:pb-40">
+      <section className="relative overflow-hidden hero-bg-pattern min-h-[calc(100vh-4.5rem)] flex items-center py-16 sm:py-20 lg:py-28">
         <div className="absolute inset-0 z-0">
-          <Image
-            src="https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&w=1920"
-            alt="Clean eco background"
-            fill
-            className="object-cover opacity-15"
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#f8fcf9]/70 to-[#f8fcf9]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#f8fcf9]/60 via-[#f8fcf9]/30 to-[#f8fcf9]" />
         </div>
 
         <HeroAmbientAnimation />
 
-        <div className="site-container relative z-10">
+        <div className="site-container relative z-10 w-full">
           <AnimatedHeroText />
         </div>
       </section>
