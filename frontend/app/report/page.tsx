@@ -30,6 +30,22 @@ const CATEGORY_OPTIONS: Array<{ value: ReportCategory; label: string }> = [
 ];
 
 const passthroughLoader: ImageLoader = ({ src }) => src;
+const DEFAULT_CATEGORY: ReportCategory = "overflowing";
+const EMPTY_FORM_STATE = {
+  title: "",
+  description: "",
+  category: DEFAULT_CATEGORY,
+  latitude: "",
+  longitude: "",
+  imageUrl: "",
+  address: "",
+  binId: "",
+};
+
+const createClientReportId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `online-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 const isPhoneDevice = () =>
   /iPhone|iPod|Android.+Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -38,16 +54,7 @@ export default function ReportIssuePage() {
   const router = useRouter();
   const { data: session } = useSession();
   const { isOnline } = useNetworkStatus();
-  const [formState, setFormState] = useState({
-    title: "",
-    description: "",
-    category: "overflowing" as ReportCategory,
-    latitude: "",
-    longitude: "",
-    imageUrl: "",
-    address: "",
-    binId: "",
-  });
+  const [formState, setFormState] = useState(EMPTY_FORM_STATE);
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const categoryMenuRef = useRef<HTMLDivElement | null>(null);
   const [isLocating, setIsLocating] = useState(true);
@@ -62,11 +69,7 @@ export default function ReportIssuePage() {
   const [isLookingUpBin, setIsLookingUpBin] = useState(false);
   const [isPhone, setIsPhone] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
-  const clientIdRef = useRef(
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `online-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  );
+  const clientIdRef = useRef(createClientReportId());
 
   const updateField = (key: keyof typeof formState, value: string) => {
     setFormState((current) => ({ ...current, [key]: value }));
@@ -189,6 +192,23 @@ export default function ReportIssuePage() {
     }
   };
 
+  const resetFormAfterOfflineSave = () => {
+    setFormState(EMPTY_FORM_STATE);
+    setImagePreviewUrl(null);
+    setPendingImageFile(null);
+    setImageError("");
+    setError("");
+    setIsCategoryMenuOpen(false);
+    setIsBinAutoDetected(false);
+    clientIdRef.current = createClientReportId();
+
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+
+    requestLocation();
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (isSubmitting) return;
@@ -260,8 +280,7 @@ export default function ReportIssuePage() {
       });
 
       toast.success("Report saved offline. It will submit when you're back online.");
-      router.push("/reports");
-      router.refresh();
+      resetFormAfterOfflineSave();
       return true;
     };
 
