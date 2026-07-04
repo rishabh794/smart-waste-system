@@ -299,6 +299,7 @@ export const reportQuerySchema = z.object({
   search: z.string().optional(),
   category: z.string().optional(),
   sort: z.string().optional(),
+  severity: z.string().optional(),
 });
 
 export const getValidationErrorMessage = (error: z.ZodError) => {

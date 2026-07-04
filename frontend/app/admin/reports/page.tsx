@@ -35,6 +35,7 @@ export default function AdminReportsPage() {
     if (debouncedSearch) params.set("search", debouncedSearch);
     if (filters.category && filters.category !== "all") params.set("category", filters.category);
     if (filters.sortOrder) params.set("sort", filters.sortOrder);
+    if (filters.severity && filters.severity !== "all") params.set("severity", filters.severity);
     return params.toString();
   };
 

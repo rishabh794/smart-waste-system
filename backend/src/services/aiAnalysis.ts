@@ -43,11 +43,11 @@ Guidelines for Classification:
 - If the image DOES NOT show waste (e.g., a selfie, a dog, a blurry black screen), set isValidReport to false. 
 - IMPORTANT: If isValidReport is false, you MUST default severity to "low" and category to "general".
 
-2. SEVERITY LEVELS:
-- "critical": Hazardous materials, medical waste, active fires, or situations posing immediate danger to public safety.
-- "high": Large illegal dumping sites, heavily overflowing bins blocking sidewalks, or dead animals.
-- "medium": Moderately overflowing bins, scattered street litter, or damaged public bins.
-- "low": Minor litter, a single misplaced item, or general cleanliness issues.
+2. SEVERITY LEVELS (judge by SCALE and DANGER, not mere presence of waste):
+- "critical": Hazardous materials (chemicals, medical waste, asbestos), active fires, sewage spills, or situations posing IMMEDIATE danger to public health or safety. Health risk: direct and urgent.
+- "high": Large-scale illegal dumping (10+ bags or bulky items like furniture/appliances), bins overflowing so severely they block pedestrian walkways, or dead animals. Health risk: significant — attracts pests, creates unsanitary conditions, or obstructs public areas.
+- "medium": A bin that is visibly overflowing (waste spilling over the rim), a concentrated cluster of 5-10 distinct litter items in a small area, or a physically damaged/broken public bin needing repair. Health risk: moderate — could worsen if left unattended but not immediately dangerous.
+- "low": Fewer than 5 scattered litter items (wrappers, sachets, bottles, paper), a single misplaced item, or general untidiness. Health risk: negligible — cosmetic issue with no obstruction or sanitary concern.
 
 3. WASTE CATEGORIES:
 - "organic": Food waste, yard trimmings, dead leaves, branches.

@@ -234,7 +234,7 @@ export const getAllReports = async (req: Request, res: Response): Promise<any> =
     return res.status(400).json({ error: getValidationErrorMessage(parsedQuery.error) });
   }
 
-  const { page, limit, status, search, category, sort } = parsedQuery.data;
+  const { page, limit, status, search, category, sort, severity } = parsedQuery.data;
   const offset = (page - 1) * limit;
 
   // Split status query like "?status=pending,in_review"
@@ -246,6 +246,10 @@ export const getAllReports = async (req: Request, res: Response): Promise<any> =
   }
   if (category && category !== 'all') {
     conditions.push(eq(reports.category, category as any));
+  }
+  if (severity && severity !== 'all') {
+    const severityArray = severity.split(',').map((s) => s.trim());
+    conditions.push(inArray(reportAiAnalyses.severity, severityArray));
   }
   if (search) {
     conditions.push(
@@ -270,6 +274,7 @@ export const getAllReports = async (req: Request, res: Response): Promise<any> =
       .select({ count: sql<number>`count(*)` })
       .from(reports)
       .leftJoin(users, eq(reports.userId, users.id))
+      .leftJoin(reportAiAnalyses, eq(reports.id, reportAiAnalyses.reportId))
       .where(whereClause);
 
     const total = Number(totalCountResult?.count || 0);

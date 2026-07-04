@@ -10,10 +10,13 @@ export type ReportSortOrder = "newest" | "oldest";
 
 export type ReportCategoryFilter = ReportCategory | "all";
 
+export type ReportSeverityFilter = "low" | "medium" | "high" | "critical" | "all";
+
 export interface ReportsBoardFilters {
   searchQuery: string;
   category: ReportCategoryFilter;
   sortOrder: ReportSortOrder;
+  severity: ReportSeverityFilter;
 }
 
 export const COLUMN_PAGE_SIZE = 12;
@@ -22,6 +25,7 @@ export const DEFAULT_BOARD_FILTERS: ReportsBoardFilters = {
   searchQuery: "",
   category: "all",
   sortOrder: "newest",
+  severity: "all",
 };
 
 export const groupReportsForBoard = (reports: AdminReport[]): GroupedReports => {

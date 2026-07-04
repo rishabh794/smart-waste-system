@@ -1,7 +1,7 @@
 "use client";
 
 import DropdownField from "@/components/ui/DropdownField";
-import type { ReportCategoryFilter, ReportSortOrder, ReportsBoardFilters } from "@/lib/adminReports";
+import type { ReportCategoryFilter, ReportSeverityFilter, ReportSortOrder, ReportsBoardFilters } from "@/lib/adminReports";
 
 const CATEGORY_OPTIONS: Array<{ value: ReportCategoryFilter; label: string }> = [
   { value: "all", label: "All categories" },
@@ -10,6 +10,14 @@ const CATEGORY_OPTIONS: Array<{ value: ReportCategoryFilter; label: string }> = 
   { value: "missed_pickup", label: "Missed pickup" },
   { value: "illegal_dumping", label: "Illegal dumping" },
   { value: "general", label: "General" },
+];
+
+const SEVERITY_OPTIONS: Array<{ value: ReportSeverityFilter; label: string }> = [
+  { value: "all", label: "All severities" },
+  { value: "critical", label: "Critical" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
 ];
 
 const SORT_OPTIONS: Array<{ value: ReportSortOrder; label: string }> = [
@@ -38,7 +46,7 @@ export default function ReportsBoardToolbar({
   return (
     <section className="soft-surface rounded-2xl p-4 sm:p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
             <label className="mb-1 block text-xs font-semibold text-[#21412f]">Search</label>
             <input
@@ -55,6 +63,13 @@ export default function ReportsBoardToolbar({
             value={filters.category}
             options={CATEGORY_OPTIONS}
             onChange={(value) => updateFilter("category", value)}
+          />
+
+          <DropdownField
+            label="Severity"
+            value={filters.severity}
+            options={SEVERITY_OPTIONS}
+            onChange={(value) => updateFilter("severity", value)}
           />
 
           <DropdownField
