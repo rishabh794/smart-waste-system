@@ -59,6 +59,7 @@ export default function ReportIssuePage() {
   const categoryMenuRef = useRef<HTMLDivElement | null>(null);
   const [isLocating, setIsLocating] = useState(true);
   const [locationError, setLocationError] = useState("");
+  const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -101,6 +102,9 @@ export default function ReportIssuePage() {
 
         // Auto-detect nearby bin
         lookupNearbyBin(position.coords.latitude, position.coords.longitude);
+
+        // Reverse geocode to auto-fill address
+        reverseGeocode(position.coords.latitude, position.coords.longitude);
       },
       (positionError) => {
         console.error(positionError);
@@ -130,6 +134,38 @@ export default function ReportIssuePage() {
       setIsBinAutoDetected(false);
     } finally {
       setIsLookingUpBin(false);
+    }
+  };
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    setIsReverseGeocoding(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&zoom=18`,
+        {
+          headers: {
+            "Accept-Language": navigator.language || "en",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.error("Reverse geocoding failed:", response.status);
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.display_name) {
+        setFormState((current) => ({
+          ...current,
+          address: data.display_name,
+        }));
+      }
+    } catch (error) {
+      console.error("Reverse geocoding error:", error);
+    } finally {
+      setIsReverseGeocoding(false);
     }
   };
 
@@ -512,10 +548,20 @@ export default function ReportIssuePage() {
                   <label className="mb-1 block text-sm font-semibold text-[#21412f]">Address (optional)</label>
                   <input
                     className="input-clean"
-                    placeholder="Elm Street, Ward 12"
+                    placeholder={isReverseGeocoding ? "Detecting address from your location..." : "Elm Street, Ward 12"}
                     value={formState.address}
                     onChange={(event) => updateField("address", event.target.value)}
                   />
+                  {isReverseGeocoding && (
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[#1a7b3a]">
+                      Detecting address...
+                    </p>
+                  )}
+                  {!isReverseGeocoding && formState.address && (
+                    <p className="mt-1 text-xs text-[#5f7167]">
+                      Address auto-filled from your location. You can edit it if needed.
+                    </p>
+                  )}
                 </div>
 
                 <div>
