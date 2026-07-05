@@ -1,4 +1,4 @@
-import { pgTable, uuid, integer, date, varchar, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, integer, date, varchar, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { users } from './users.js';
 import { bins } from './bins.js';
@@ -15,6 +15,7 @@ export const routes = pgTable(
     pendingDriverUnique: uniqueIndex('routes_pending_driver_unique')
       .on(table.driverId)
       .where(sql`${table.status} = 'pending'`),
+    driverIdIdx: index('routes_driver_id_idx').on(table.driverId),
   })
 );
 
@@ -32,5 +33,7 @@ export const routeBins = pgTable(
   },
   (table) => ({
     routeBinUnique: uniqueIndex('route_bins_route_bin_unique').on(table.routeId, table.binId),
+    routeIdIdx: index('route_bins_route_id_idx').on(table.routeId),
+    binIdIdx: index('route_bins_bin_id_idx').on(table.binId),
   })
 );

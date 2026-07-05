@@ -156,25 +156,25 @@ export default function AdminDashboardContent({
     emptyMessage: string;
     bins: Bin[];
   }> = [
-    {
-      key: "active",
-      title: "Active Bins",
-      emptyMessage: "No active bins available.",
-      bins: filteredBins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "active"),
-    },
-    {
-      key: "maintenance",
-      title: "Maintenance Bins",
-      emptyMessage: "No maintenance bins right now.",
-      bins: filteredBins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "maintenance"),
-    },
-    {
-      key: "retired",
-      title: "Retired Bins",
-      emptyMessage: "No retired bins right now.",
-      bins: filteredBins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "retired"),
-    },
-  ];
+      {
+        key: "active",
+        title: "Active Bins",
+        emptyMessage: "No active bins available.",
+        bins: filteredBins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "active"),
+      },
+      {
+        key: "maintenance",
+        title: "Maintenance Bins",
+        emptyMessage: "No maintenance bins right now.",
+        bins: filteredBins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "maintenance"),
+      },
+      {
+        key: "retired",
+        title: "Retired Bins",
+        emptyMessage: "No retired bins right now.",
+        bins: filteredBins.filter((bin) => normalizeConditionStatus(bin.conditionStatus) === "retired"),
+      },
+    ];
 
   const getDriverDisplayName = (driver: Driver) => {
     return driver.cityName ? `${driver.name} — ${driver.cityName}` : driver.name;
@@ -183,7 +183,7 @@ export default function AdminDashboardContent({
   return (
     <>
       <section className="overflow-hidden rounded-2xl border border-[#e4ece6] bg-[#f8fcf9]">
-        <div className="flex items-center justify-between border-b border-[#e4ece6] px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4ece6] px-5 py-4">
           <h2 className="text-xl font-extrabold text-[#1d3026]">Live Zone Map</h2>
           <div className="flex items-center gap-3">
             <div ref={cityFilterMenuRef} className="relative w-48">
@@ -239,7 +239,7 @@ export default function AdminDashboardContent({
                 </div>
               )}
             </div>
-            <span className="soft-pill shrink-0 whitespace-nowrap">Auto Sync: 5s</span>
+            <span className="soft-pill hidden shrink-0 whitespace-nowrap sm:inline-flex">Auto Sync: 5s</span>
           </div>
         </div>
         <div className="p-5 pt-4">
@@ -318,58 +318,58 @@ export default function AdminDashboardContent({
           <div className="rounded-2xl border-l-4 border-[#1f8a52] bg-[#f9fcfa] p-5">
             <h3 className="mb-4 text-lg font-extrabold text-[#1f412f]">Dispatch Route</h3>
 
-          <label className="mb-2 block text-sm font-bold text-[#244734]">Select Driver:</label>
-          <div ref={driverMenuRef} className="relative mb-4">
-            <button
-              type="button"
-              aria-haspopup="listbox"
-              aria-expanded={isDriverMenuOpen}
-              onClick={onToggleDriverMenu}
-              className={`dropdown-clean ${isDriverMenuOpen ? "dropdown-clean-open" : ""}`}
-            >
-              <span className={selectedDriver ? "text-[#1f3b2d]" : "text-[#4f6759]"}>
-                {selectedDriver
-                  ? getDriverDisplayName(drivers.find((d) => d.id === selectedDriver) ?? { id: "", name: selectedDriverName, cityId: null, cityName: null })
-                  : "-- Choose a Driver --"}
-              </span>
-              <ChevronIcon open={isDriverMenuOpen} />
-            </button>
-
-            {isDriverMenuOpen && (
-              <div
-                role="listbox"
-                className="absolute z-40 mt-2 w-full overflow-hidden rounded-xl border border-[#bfd5c5] bg-[#f7fcf8] shadow-lg"
+            <label className="mb-2 block text-sm font-bold text-[#244734]">Select Driver:</label>
+            <div ref={driverMenuRef} className="relative mb-4">
+              <button
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isDriverMenuOpen}
+                onClick={onToggleDriverMenu}
+                className={`dropdown-clean ${isDriverMenuOpen ? "dropdown-clean-open" : ""}`}
               >
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={selectedDriver === ""}
-                  className={`dropdown-option ${selectedDriver === "" ? "dropdown-option-selected" : ""}`}
-                  onClick={() => onSelectDriver("")}
+                <span className={selectedDriver ? "text-[#1f3b2d]" : "text-[#4f6759]"}>
+                  {selectedDriver
+                    ? getDriverDisplayName(drivers.find((d) => d.id === selectedDriver) ?? { id: "", name: selectedDriverName, cityId: null, cityName: null })
+                    : "-- Choose a Driver --"}
+                </span>
+                <ChevronIcon open={isDriverMenuOpen} />
+              </button>
+
+              {isDriverMenuOpen && (
+                <div
+                  role="listbox"
+                  className="absolute z-40 mt-2 w-full overflow-hidden rounded-xl border border-[#bfd5c5] bg-[#f7fcf8] shadow-lg"
                 >
-                  -- Choose a Driver --
-                </button>
-                <div className="max-h-56 overflow-y-auto">
-                  {filteredDrivers.length === 0 ? (
-                    <p className="px-3 py-3 text-sm italic text-[#5c7165]">No drivers available yet.</p>
-                  ) : (
-                    filteredDrivers.map((driver) => (
-                      <button
-                        key={driver.id}
-                        type="button"
-                        role="option"
-                        aria-selected={selectedDriver === driver.id}
-                        className={`dropdown-option ${selectedDriver === driver.id ? "dropdown-option-selected" : ""}`}
-                        onClick={() => onSelectDriver(driver.id)}
-                      >
-                        {getDriverDisplayName(driver)}
-                      </button>
-                    ))
-                  )}
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={selectedDriver === ""}
+                    className={`dropdown-option ${selectedDriver === "" ? "dropdown-option-selected" : ""}`}
+                    onClick={() => onSelectDriver("")}
+                  >
+                    -- Choose a Driver --
+                  </button>
+                  <div className="max-h-56 overflow-y-auto">
+                    {filteredDrivers.length === 0 ? (
+                      <p className="px-3 py-3 text-sm italic text-[#5c7165]">No drivers available yet.</p>
+                    ) : (
+                      filteredDrivers.map((driver) => (
+                        <button
+                          key={driver.id}
+                          type="button"
+                          role="option"
+                          aria-selected={selectedDriver === driver.id}
+                          className={`dropdown-option ${selectedDriver === driver.id ? "dropdown-option-selected" : ""}`}
+                          onClick={() => onSelectDriver(driver.id)}
+                        >
+                          {getDriverDisplayName(driver)}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
             <div className="mb-5 border-y border-[#dde8e0] py-3 text-sm font-semibold text-[#3f5b4b]">
               Selected Bins: {selectedBins.length}

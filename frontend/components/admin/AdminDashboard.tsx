@@ -19,7 +19,7 @@ import {
   ADMIN_BINS_KEY,
   ADMIN_CITIES_KEY,
   ADMIN_DRIVERS_KEY,
-  ADMIN_PENDING_ROUTES_KEY,
+  getAdminPendingRoutesKey,
   createBin,
   createCity,
   createDriver,
@@ -57,6 +57,8 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
   const [isAddingCity, setIsAddingCity] = useState(false);
   const [isDeletingCity, setIsDeletingCity] = useState(false);
   const [isUpdatingBins, setIsUpdatingBins] = useState(false);
+  // City filter state for the status page.
+  const [selectedStatusCity, setSelectedStatusCity] = useState<string>("");
   // useRef: keep dropdown root for outside-click detection.
   const driverMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -86,12 +88,14 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
     mutate: mutateDrivers,
   } = useSWR<Driver[]>(ADMIN_DRIVERS_KEY, fetchDrivers);
 
+  const pendingRoutesKey = getAdminPendingRoutesKey(selectedStatusCity || undefined);
+
   const {
     data: pendingRoutesData,
     error: pendingRoutesError,
     isLoading: isPendingRoutesLoading,
     mutate: mutatePendingRoutes,
-  } = useSWR<PendingRoute[]>(ADMIN_PENDING_ROUTES_KEY, fetchPendingRoutes, {
+  } = useSWR<PendingRoute[]>(pendingRoutesKey, fetchPendingRoutes, {
     // SWR polling keeps route progress fresh.
     refreshInterval: 5000,
   });
@@ -391,6 +395,9 @@ export default function AdminDashboard({ section = "dashboard" }: { section?: Ad
           pendingRoutes={pendingRoutes}
           isPendingRoutesLoading={isPendingRoutesLoading}
           pendingRoutesError={pendingRoutesError}
+          cities={cities}
+          selectedCityId={selectedStatusCity}
+          onCityChange={setSelectedStatusCity}
         />
       )}
 

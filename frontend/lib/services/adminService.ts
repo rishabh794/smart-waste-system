@@ -15,6 +15,8 @@ import type {
 export const ADMIN_BINS_KEY = "/api/bins";
 export const ADMIN_DRIVERS_KEY = "/api/users/drivers";
 export const ADMIN_PENDING_ROUTES_KEY = "/api/routes/pending";
+export const getAdminPendingRoutesKey = (cityId?: string) =>
+  cityId ? `${ADMIN_PENDING_ROUTES_KEY}?cityId=${cityId}` : ADMIN_PENDING_ROUTES_KEY;
 export const ADMIN_CITIES_KEY = "/api/cities";
 
 export const fetchBins = (url: string) => fetchApiJson<Bin[]>(url);

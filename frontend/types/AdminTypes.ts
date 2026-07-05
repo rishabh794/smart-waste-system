@@ -13,6 +13,9 @@ export interface City {
 export interface PendingRoute {
   routeId: string;
   driverName: string;
+  assignedDate: string;
+  cityName: string;
+  cityId: string | null;
   progress: string;
   isComplete: boolean;
 }

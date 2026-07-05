@@ -455,26 +455,36 @@ export const completeRoute = async (req: Request, res: Response): Promise<any> =
 
 export const getPendingRoutes = async (req: Request, res: Response): Promise<any> => {
   try {
+    const cityIdFilter = typeof req.query.cityId === 'string' ? req.query.cityId.trim() : null;
+
+    // Build the WHERE conditions
+    const whereConditions = [eq(routes.status, 'pending')];
+
     // Get all routes that are currently pending
     const activeRoutes = await db.select({
       routeId: routes.id,
       driverName: users.name,
       assignedDate: routes.assignedDate,
+      driverId: routes.driverId,
     })
     .from(routes)
     .innerJoin(users, eq(routes.driverId, users.id))
-    .where(eq(routes.status, 'pending'));
+    .where(and(...whereConditions));
 
     if (activeRoutes.length === 0) return res.status(200).json([]);
 
-    //  Fetch the bins for these active routes to calculate progress
+    //  Fetch the bins for these active routes to calculate progress and resolve city
     const routeIds = activeRoutes.map(r => r.routeId);
     
     const activeRouteBins = await db.select({
       routeId: routeBins.routeId,
-      status: routeBins.fillStatus
+      status: routeBins.fillStatus,
+      cityId: bins.cityId,
+      cityName: cities.name,
     })
     .from(routeBins)
+    .innerJoin(bins, eq(routeBins.binId, bins.id))
+    .innerJoin(cities, eq(bins.cityId, cities.id))
     .where(inArray(routeBins.routeId, routeIds));
 
     // Assemble the payload with progress tracking
@@ -485,14 +495,27 @@ export const getPendingRoutes = async (req: Request, res: Response): Promise<any
         b => !!b.status && b.status.toLowerCase() !== 'unknown'
       ).length;
 
+      // Resolve city from the first bin (all bins in a route belong to the same city)
+      const cityName = binsForThisRoute[0]?.cityName ?? 'Unknown';
+      const cityId = binsForThisRoute[0]?.cityId ?? null;
+
       return {
-        ...route,
+        routeId: route.routeId,
+        driverName: route.driverName,
+        assignedDate: route.assignedDate,
+        cityName,
+        cityId,
         progress: `${resolvedBins} / ${totalBins} Resolved`,
         isComplete: resolvedBins === totalBins && totalBins > 0
       };
     });
 
-    return res.status(200).json(dashboardData);
+    // Apply city filter on the assembled data (since city is resolved from bins, not routes)
+    const filteredData = cityIdFilter
+      ? dashboardData.filter(r => r.cityId === cityIdFilter)
+      : dashboardData;
+
+    return res.status(200).json(filteredData);
   } catch (error) {
     console.error('Active routes error:', error);
     return res.status(500).json({ error: 'Failed to fetch active routes' });
