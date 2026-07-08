@@ -20,10 +20,11 @@ Smart Waste System is a full stack waste collection operations platform for city
 
 ## Project Overview
 
-The platform supports two core personas:
+The platform supports three core personas:
 
-- Admin: creates drivers, registers bins, dispatches routes, and tracks route progress.
+- Admin: creates drivers, registers bins, dispatches routes, tracks route progress, and manages citizen reports.
 - Driver: views assigned route, updates bin outcomes, and completes routes.
+- Citizen: reports waste issues, tracks report status, and views their report history.
 
 The system is built as a monorepo with a Next.js frontend and an Express + Drizzle backend backed by PostgreSQL.
 
@@ -76,6 +77,8 @@ smart-waste-system/
 
 ## Core Features
 
+- Citizen Reporting Flow: Citizens can report waste issues, upload photos, and track the status of their reports. Admins can view, manage, and update the status of these reports.
+- AI Image Triage: Automatic background analysis of citizen-reported waste images using Gemini API. It categorizes the waste, assesses severity, and determines validity with confidence scores.
 - PWA Support & Offline Mode: Fully functional offline capabilities with IndexedDB state persistence and background sync.
 - Authentication: Credentials and Google OAuth authentication with role-aware sessions.
 - Protected pages with role checks for admin-only sections.
@@ -215,6 +218,8 @@ If you run the seed script, these accounts are created:
   - Email: `amit@waste.com` | Password: `password123`
   - Email: `rahul@waste.com` | Password: `password123`
   - Email: `priya@waste.com` | Password: `password123`
+- Citizens
+  - Email: `citizen@waste.com` | Password: `password123`
 
 ## API Overview
 
@@ -285,7 +290,9 @@ Base URL: `/api`
 ## Future Scope
 
 - Advanced Driver Dashboard
-  - Turn-by-turn routing, offline sync, shift start/end flow, and driver performance KPIs.
+  - Turn-by-turn routing, shift start/end flow, and driver performance KPIs.
+- AI-Driven Route Optimization
+  - Dynamic rerouting based on real-time severity of citizen reports and high-priority AI alerts.
 - Backend Cron Jobs
   - Daily route auto-generation, stale-route escalation, missed-bin alerts, and cleanup tasks.
 - Driver Capacity and Vehicle Management
