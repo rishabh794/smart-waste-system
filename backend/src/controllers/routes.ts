@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { db } from '../db/db.js';
 import { routes, routeBins, bins, users, cities } from '../db/schema/index.js';
-import {and,desc, eq , inArray} from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import {
   createRouteBodySchema,
   driverIdParamsSchema,
@@ -62,17 +62,17 @@ export const getDriverTodayRoute = async (req: Request, res: Response): Promise<
       wasOverflowing: routeBins.wasOverflowing,
       sequence: routeBins.sequenceNumber
     })
-    .from(routeBins)
-    .innerJoin(bins, eq(routeBins.binId, bins.id))
-    .innerJoin(cities, eq(bins.cityId, cities.id))
-    .where(eq(routeBins.routeId, latestRoute.id));
+      .from(routeBins)
+      .innerJoin(bins, eq(routeBins.binId, bins.id))
+      .innerJoin(cities, eq(bins.cityId, cities.id))
+      .where(eq(routeBins.routeId, latestRoute.id));
 
     // Fetch driver's city depot coordinates
     const [driver] = await db.select({ cityId: users.cityId }).from(users).where(eq(users.id, driverId)).limit(1);
-    
+
     let depotLat: number | undefined;
     let depotLng: number | undefined;
-    
+
     if (driver?.cityId) {
       const [city] = await db.select({ lat: cities.depotLat, lng: cities.depotLng }).from(cities).where(eq(cities.id, driver.cityId)).limit(1);
       if (city && city.lat != null && city.lng != null) {
@@ -116,9 +116,9 @@ export const updateBinStatus = async (req: Request, res: Response): Promise<any>
       driverId: routes.driverId,
       status: routes.status,
     })
-    .from(routes)
-    .where(eq(routes.id, routeId))
-    .limit(1);
+      .from(routes)
+      .where(eq(routes.id, routeId))
+      .limit(1);
 
     if (!targetRoute) {
       return res.status(404).json({ error: 'Route not found' });
@@ -295,7 +295,8 @@ export const createRoute = async (req: Request, res: Response): Promise<any> => 
         .select({ binId: routeBins.binId })
         .from(routeBins)
         .innerJoin(routes, eq(routeBins.routeId, routes.id))
-        .where(and(inArray(routeBins.binId, binIds), eq(routes.status, 'pending')));
+        .where(and(inArray(routeBins.binId, binIds), eq(routes.status, 'pending')))
+        .for('update'); //prevents other transactions from modifying the same row
 
       const activeBinSet = new Set(activeBins.map((bin) => bin.id));
       const pendingBinSet = new Set(pendingAssignedBins.map((bin) => bin.binId));
@@ -397,9 +398,9 @@ export const completeRoute = async (req: Request, res: Response): Promise<any> =
       driverId: routes.driverId,
       status: routes.status,
     })
-    .from(routes)
-    .where(eq(routes.id, routeId))
-    .limit(1);
+      .from(routes)
+      .where(eq(routes.id, routeId))
+      .limit(1);
 
     if (!targetRoute) {
       return res.status(404).json({ error: 'Route not found' });
@@ -429,8 +430,8 @@ export const completeRoute = async (req: Request, res: Response): Promise<any> =
 
     //  Block completion if work is unfinished
     if (hasUnresolvedBins) {
-      return res.status(400).json({ 
-        error: 'Cannot finish route: You still have unresolved bins to check!' 
+      return res.status(400).json({
+        error: 'Cannot finish route: You still have unresolved bins to check!'
       });
     }
 
@@ -467,25 +468,25 @@ export const getPendingRoutes = async (req: Request, res: Response): Promise<any
       assignedDate: routes.assignedDate,
       driverId: routes.driverId,
     })
-    .from(routes)
-    .innerJoin(users, eq(routes.driverId, users.id))
-    .where(and(...whereConditions));
+      .from(routes)
+      .innerJoin(users, eq(routes.driverId, users.id))
+      .where(and(...whereConditions));
 
     if (activeRoutes.length === 0) return res.status(200).json([]);
 
     //  Fetch the bins for these active routes to calculate progress and resolve city
     const routeIds = activeRoutes.map(r => r.routeId);
-    
+
     const activeRouteBins = await db.select({
       routeId: routeBins.routeId,
       status: routeBins.fillStatus,
       cityId: bins.cityId,
       cityName: cities.name,
     })
-    .from(routeBins)
-    .innerJoin(bins, eq(routeBins.binId, bins.id))
-    .innerJoin(cities, eq(bins.cityId, cities.id))
-    .where(inArray(routeBins.routeId, routeIds));
+      .from(routeBins)
+      .innerJoin(bins, eq(routeBins.binId, bins.id))
+      .innerJoin(cities, eq(bins.cityId, cities.id))
+      .where(inArray(routeBins.routeId, routeIds));
 
     // Assemble the payload with progress tracking
     const dashboardData = activeRoutes.map(route => {
