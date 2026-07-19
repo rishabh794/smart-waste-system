@@ -24,7 +24,7 @@ Return ONLY a JSON object with these exact fields:
 - "confidenceScore" (number): 0 to 100, how confident you are in your assessment.
 - "severity" (string): one of "low", "medium", "high", or "critical" based on the waste issue shown.
 - "category" (string): one of "organic", "bulk", "recyclable", "hazardous", or "general" based on the type of waste visible.
-- "reason" (string): brief 1-2 sentence explanation of your analysis, noting screen detection evidence if applicable.
+- "reason" (string): ONE short sentence (max 20 words) explaining your assessment, noting screen detection evidence if applicable. Do not write more than one sentence.
 
 Format:
 {
@@ -144,7 +144,12 @@ const repairTruncatedJson = (json: string): string => {
     s += '"';
   }
 
+  // Dangling key with a colon but no value at all yet (e.g. `"key":`)
   s = s.replace(/,\s*"[^"]*"\s*:\s*$/, '');
+  // Dangling key with no colon at all — output was cut off right after the key
+  // finished, before Gemini even emitted ":" (this is what produced the
+  // `..."severity": "low", "category"` truncation in the bug report)
+  s = s.replace(/,\s*"[^"]*"\s*$/, '');
   s = s.replace(/,\s*$/, '');
 
   // Balance braces and brackets
@@ -175,45 +180,63 @@ const repairTruncatedJson = (json: string): string => {
   return s;
 };
 
+const VALID_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
+const VALID_CATEGORIES = ['organic', 'bulk', 'recyclable', 'hazardous', 'general'] as const;
+
 /**
- * Calls the Gemini API with the image and parses the structured JSON response.
+ * Fixed (non-dynamic) thinking budget for screen-photo/fraud detection reasoning.
+ *
+ * IMPORTANT CAVEAT: Google's own forum threads (and partial reproduction by
+ * their staff) confirm thinkingBudget is a *soft target*, not a hard cap —
+ * Gemini 2.5 Flash can blow past it, sometimes 2-3x, in a meaningful fraction
+ * of calls. One widely-cited report saw ~20% of calls overshoot a 1512-token
+ * budget up to 3000-3500 tokens — suspiciously close to our own 20% failure
+ * rate. Reporters also noted LOWER fixed budgets are honored more reliably
+ * than higher ones, so we deliberately keep this modest rather than generous.
+ * Never use -1 (dynamic) here — dynamic thinking is what makes the overrun
+ * unpredictable in the first place; a small fixed number is far more stable.
+ *
+ * Because the budget can't be trusted as a hard ceiling, the real fix is
+ * headroom + retry (see tokenBudgets in callGemini below), not this number
+ * alone. Tune THINKING_BUDGET using the thoughtsTokenCount logged by
+ * requestGemini in production, not by guessing.
  */
-const callGemini = async (
+const THINKING_BUDGET = 400;
+
+const buildGeminiRequestBody = (base64: string, mimeType: string, maxOutputTokens: number) => ({
+  contents: [
+    {
+      parts: [
+        {
+          inline_data: {
+            mime_type: mimeType,
+            data: base64,
+          },
+        },
+        {
+          text: ANALYSIS_PROMPT,
+        },
+      ],
+    },
+  ],
+  generationConfig: {
+    temperature: 0.1,
+    maxOutputTokens,
+    responseMimeType: 'application/json',
+    thinkingConfig: { thinkingBudget: THINKING_BUDGET },
+  },
+});
+
+const requestGemini = async (
   base64: string,
   mimeType: string,
-  signal: AbortSignal
-): Promise<AiAnalysisResult> => {
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is not configured.');
-  }
-
-  const body = {
-    contents: [
-      {
-        parts: [
-          {
-            inline_data: {
-              mime_type: mimeType,
-              data: base64,
-            },
-          },
-          {
-            text: ANALYSIS_PROMPT,
-          },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.1,
-      maxOutputTokens: 1024,
-      responseMimeType: 'application/json',
-    },
-  };
-
+  signal: AbortSignal,
+  maxOutputTokens: number
+): Promise<{ rawText: string; finishReason: string | undefined }> => {
   const response = await fetch(GEMINI_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(buildGeminiRequestBody(base64, mimeType, maxOutputTokens)),
     signal,
   });
 
@@ -224,33 +247,97 @@ const callGemini = async (
 
   const data = (await response.json()) as {
     candidates?: Array<{
+      finishReason?: string;
       content?: { parts?: Array<{ text?: string }> };
     }>;
+    usageMetadata?: {
+      thoughtsTokenCount?: number;
+      candidatesTokenCount?: number;
+      totalTokenCount?: number;
+    };
   };
 
-  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const candidate = data.candidates?.[0];
+  const rawText = candidate?.content?.parts?.[0]?.text;
+
+  // Log actual thinking-token usage so THINKING_BUDGET and the headroom in
+  // tokenBudgets can be calibrated from real traffic instead of guesswork.
+  // Watch for thoughtsTokenCount landing near or above THINKING_BUDGET —
+  // that's the overshoot signature, and if it's common, lower the budget
+  // further rather than raising it.
+  if (data.usageMetadata) {
+    const { thoughtsTokenCount, candidatesTokenCount, totalTokenCount } = data.usageMetadata;
+    console.log(
+      `[AI] Gemini token usage — thinking: ${thoughtsTokenCount ?? 0}, output: ${candidatesTokenCount ?? 0}, total: ${totalTokenCount ?? 0}, budget: ${THINKING_BUDGET}, maxOutputTokens: ${maxOutputTokens}, finishReason: ${candidate?.finishReason ?? 'unknown'}`
+    );
+  }
 
   if (!rawText) {
-    throw new Error('Gemini returned an empty response.');
+    throw new Error(`Gemini returned an empty response (finishReason: ${candidate?.finishReason ?? 'unknown'}).`);
   }
 
-  const parsed = parseGeminiJson<AiAnalysisResult>(rawText);
+  return { rawText, finishReason: candidate?.finishReason };
+};
 
-  // Validate all fields against expected types and allowed values
-  const VALID_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
-  const VALID_CATEGORIES = ['organic', 'bulk', 'recyclable', 'hazardous', 'general'] as const;
-
-  if (
-    typeof parsed.isValidReport !== 'boolean' ||
-    typeof parsed.confidenceScore !== 'number' ||
-    !VALID_SEVERITIES.includes(parsed.severity as any) ||
-    !VALID_CATEGORIES.includes(parsed.category as any) ||
-    typeof parsed.reason !== 'string'
-  ) {
-    throw new Error(`Gemini returned invalid or incomplete JSON: ${rawText.slice(0, 300)}`);
+/**
+ * Calls the Gemini API with the image and parses the structured JSON response.
+ * Makes one retry attempt with a larger token budget if the first attempt is
+ * truncated (finishReason MAX_TOKENS) or otherwise unparsable, instead of
+ * surfacing the failure immediately and waiting on BullMQ's 5-minute backoff.
+ */
+const callGemini = async (
+  base64: string,
+  mimeType: string,
+  signal: AbortSignal
+): Promise<AiAnalysisResult> => {
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY is not configured.');
   }
 
-  return parsed;
+  // Headroom above THINKING_BUDGET (400), not just above the expected JSON size —
+  // because thinking can overshoot its budget. First attempt gives ~4x headroom
+  // (covers ordinary overshoot); retry gives ~10x for the rare extreme case.
+  const tokenBudgets = [1536, 4096];
+  let lastError: Error = new Error('Gemini analysis failed for an unknown reason.');
+
+  for (const maxOutputTokens of tokenBudgets) {
+    let rawText: string;
+    let finishReason: string | undefined;
+
+    try {
+      ({ rawText, finishReason } = await requestGemini(base64, mimeType, signal, maxOutputTokens));
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      continue;
+    }
+
+    if (finishReason === 'MAX_TOKENS') {
+      lastError = new Error(
+        `Gemini response was truncated before completing (finishReason: MAX_TOKENS, maxOutputTokens: ${maxOutputTokens}): ${rawText.slice(0, 200)}`
+      );
+      continue;
+    }
+
+    try {
+      const parsed = parseGeminiJson<AiAnalysisResult>(rawText);
+
+      if (
+        typeof parsed.isValidReport !== 'boolean' ||
+        typeof parsed.confidenceScore !== 'number' ||
+        !VALID_SEVERITIES.includes(parsed.severity as any) ||
+        !VALID_CATEGORIES.includes(parsed.category as any) ||
+        typeof parsed.reason !== 'string'
+      ) {
+        throw new Error(`Gemini returned invalid or incomplete JSON: ${rawText.slice(0, 300)}`);
+      }
+
+      return parsed;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  throw lastError;
 };
 
 export const processAiAnalysisJob = async (reportId: string, imageUrl: string): Promise<void> => {
